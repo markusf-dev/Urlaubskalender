@@ -1,0 +1,10 @@
+{
+  "name": "urlaubskalender",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Jahreskalender mit Feiertagen und Schulferien zur Urlaubsplanung",
+  "scripts": {
+    "test": "node --test test/*.test.js",
+    "start": "npx --yes serve ."
+  }
+}

@@ -1,0 +1,149 @@
+<!doctype html>
+<html lang="de">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Urlaubskalender</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <div class="app">
+    <aside class="sidebar" id="sidebar">
+      <section class="card">
+        <div class="year-nav">
+          <button type="button" id="prev-year" aria-label="Vorheriges Jahr">‹</button>
+          <strong id="year-label"></strong>
+          <button type="button" id="next-year" aria-label="Nächstes Jahr">›</button>
+        </div>
+        <label class="field">Bundesland
+          <select id="region"></select>
+        </label>
+        <p class="muted small" id="school-source"></p>
+      </section>
+
+      <section class="card">
+        <h2>Haushalt</h2>
+        <p class="muted small">Einträge und Vorschläge gelten für die angehakten Personen. Zahl = Urlaubsanspruch im Jahr.</p>
+        <ul class="list members" id="members"></ul>
+        <button type="button" id="member-add">+ Person hinzufügen</button>
+      </section>
+
+      <section class="card">
+        <h2>Urlaub eintragen <span class="muted small" id="for-whom"></span></h2>
+        <div class="row">
+          <label class="field">Von <input type="date" id="range-from"></label>
+          <label class="field">Bis <input type="date" id="range-to"></label>
+        </div>
+        <p class="muted small" id="range-preview">Oder im Kalender klicken bzw. mit der Maus ziehen.</p>
+        <button type="button" class="primary" id="range-add">Eintragen</button>
+        <ul class="list" id="blocks"></ul>
+      </section>
+
+      <section class="card">
+        <h2>Urlaub vorschlagen</h2>
+        <div class="row">
+          <label class="field">Tage verplanen <input type="number" id="sug-budget" min="0.5" step="0.5"></label>
+          <label class="field">Max. Blöcke
+            <select id="sug-blocks">
+              <option value="0">beliebig</option>
+              <option>1</option><option>2</option><option>3</option><option>4</option>
+              <option>5</option><option>6</option><option>8</option><option>10</option>
+            </select>
+          </label>
+        </div>
+        <label class="field">Stil
+          <select id="sug-style">
+            <option value="short">Brückentage &amp; lange Wochenenden (ab 3 Tagen)</option>
+            <option value="balanced">Ausgewogen (5–16 Tage am Stück)</option>
+            <option value="long">Wenige lange Urlaube (9–23 Tage am Stück)</option>
+          </select>
+        </label>
+        <label class="field">Schulferien
+          <select id="sug-school">
+            <option value="any">egal</option>
+            <option value="avoid">meiden</option>
+            <option value="only">nur in Schulferien</option>
+          </select>
+        </label>
+        <button type="button" class="primary" id="sug-run">Vorschlag berechnen</button>
+        <div id="suggestion"></div>
+      </section>
+
+      <section class="card">
+        <h2>Vorlagen <span class="muted small">(gelten jedes Jahr)</span></h2>
+        <ul class="list" id="presets"></ul>
+        <details>
+          <summary>Vorlage hinzufügen</summary>
+          <form id="preset-form" class="preset-form">
+            <label class="field">Art
+              <select name="type">
+                <option value="block">Fester Urlaub (Zeitraum)</option>
+                <option value="custom">Brauchtumstag / regionaler Feiertag</option>
+                <option value="weight">Tag anders anrechnen (Datum)</option>
+              </select>
+            </label>
+            <div class="row" data-for="custom" hidden>
+              <label class="field">Tag <select name="rule"></select></label>
+              <label class="field">Zählt als
+                <select name="customWeight">
+                  <option value="0">0 Tage (frei, kein Urlaub)</option>
+                  <option value="0.5">½ Urlaubstag</option>
+                </select>
+              </label>
+            </div>
+            <div class="row" data-for="block">
+              <label class="field">Von (TT.MM.) <input name="from" placeholder="24.12."></label>
+              <label class="field">Bis (TT.MM.) <input name="to" placeholder="31.12."></label>
+            </div>
+            <div class="row" data-for="weight" hidden>
+              <label class="field">Tag (TT.MM.) <input name="date" placeholder="24.12."></label>
+              <label class="field">Zählt als
+                <select name="weight">
+                  <option value="0.5">½ Urlaubstag</option>
+                  <option value="0">0 Tage (frei, kein Urlaub)</option>
+                </select>
+              </label>
+            </div>
+            <label class="field">Bezeichnung (optional) <input name="label" placeholder="z. B. Heiligabend"></label>
+            <fieldset class="field who" id="preset-members"><legend>Gilt für</legend></fieldset>
+            <button type="submit" class="primary">Hinzufügen</button>
+          </form>
+        </details>
+      </section>
+    </aside>
+
+    <main class="cal-wrap">
+      <header class="cal-head">
+        <button type="button" class="no-print sidebar-toggle" id="sidebar-toggle"
+          aria-controls="sidebar" aria-expanded="true" title="Seitenleiste einklappen">«</button>
+        <div class="cal-title">
+          <h1 id="title"></h1>
+          <p id="subtitle"></p>
+        </div>
+        <button type="button" class="no-print" id="print">Drucken</button>
+      </header>
+      <div class="cal-scroll">
+        <table class="cal" id="calendar"></table>
+      </div>
+      <ul class="legend">
+        <li><i class="sw sw-sa"></i>Samstag</li>
+        <li><i class="sw sw-so"></i>Sonntag / Feiertag</li>
+        <li><i class="sw sw-free"></i>frei laut Vorlage (z. B. Rosenmontag)</li>
+        <li><i class="sw sw-school"></i>Schulferien</li>
+        <li><i class="sw sw-vac"></i>Urlaub (alle Ausgewählten)</li>
+        <li><i class="sw sw-preset"></i>Urlaub aus Vorlage</li>
+        <li><i class="sw sw-sugg"></i>Vorschlag</li>
+        <li><i class="sw sw-run"></i>frei am Stück</li>
+        <li><b>½</b> halber Urlaubstag</li>
+      </ul>
+      <ul class="legend" id="member-legend"></ul>
+    </main>
+  </div>
+  <div class="toast" id="toast" role="status"></div>
+
+  <script src="js/dates.js"></script>
+  <script src="js/school.js"></script>
+  <script src="js/optimizer.js"></script>
+  <script src="js/app.js"></script>
+</body>
+</html>
