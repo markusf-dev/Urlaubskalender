@@ -4,6 +4,13 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Urlaubskalender</title>
+  <meta name="theme-color" content="#2563eb">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-title" content="Urlaub">
+  <link rel="manifest" href="manifest.webmanifest">
+  <link rel="icon" href="icons/icon.svg" type="image/svg+xml">
+  <link rel="icon" href="icons/favicon-32.png" sizes="32x32">
+  <link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
   <link rel="stylesheet" href="styles.css">
 </head>
 <body>
@@ -120,7 +127,11 @@
           <h1 id="title"></h1>
           <p id="subtitle"></p>
         </div>
-        <button type="button" class="no-print" id="print">Drucken</button>
+        <div class="head-actions no-print">
+          <button type="button" class="pill" id="storage-pill" hidden></button>
+          <button type="button" id="print">Drucken</button>
+          <button type="button" id="settings-open">⚙︎ Einstellungen</button>
+        </div>
       </header>
       <div class="cal-scroll">
         <table class="cal" id="calendar"></table>
@@ -139,11 +150,46 @@
       <ul class="legend" id="member-legend"></ul>
     </main>
   </div>
-  <div class="toast" id="toast" role="status"></div>
+  <dialog id="settings" class="dialog" aria-labelledby="settings-title">
+    <form method="dialog" class="dialog-head">
+      <h2 id="settings-title">Einstellungen</h2>
+      <button type="submit" class="link" aria-label="Schließen">✕</button>
+    </form>
+
+    <section>
+      <h3>Datenablage</h3>
+      <p id="storage-status"></p>
+      <div class="btn-row" id="storage-actions"></div>
+      <p class="muted small" id="storage-hint"></p>
+    </section>
+
+    <section>
+      <h3>Sicherung</h3>
+      <p class="muted small">Exportiert den kompletten Plan (Personen, Urlaube, Vorlagen) als Datei – zum Sichern oder um ihn auf ein anderes Gerät zu übertragen.</p>
+      <div class="btn-row">
+        <button type="button" id="export">Exportieren</button>
+        <label class="button">Importieren …<input type="file" id="import" accept=".json,application/json" hidden></label>
+      </div>
+    </section>
+
+    <section>
+      <h3>Mit dem Haushalt teilen</h3>
+      <ol class="small steps">
+        <li>Lege die Datendatei in einem geteilten Cloud-Ordner an (iCloud Drive, Dropbox oder OneDrive), den alle auf ihrem Computer synchronisieren.</li>
+        <li>Alle anderen wählen in Chrome oder Edge „Vorhandene Datei öffnen …“ und dieselbe Datei.</li>
+        <li>Änderungen erscheinen bei den anderen nach wenigen Sekunden, sobald der Cloud-Dienst die Datei abgeglichen hat.</li>
+      </ol>
+      <p class="muted small">Auf dem iPhone und in Safari geht das nicht automatisch – dort per Export/Import abgleichen.
+        Bearbeiten zwei Personen fast gleichzeitig, gewinnt der zuerst gespeicherte Stand; die andere Person bekommt einen Hinweis und wiederholt ihre Änderung.</p>
+    </section>
+  </dialog>
+
+  <div class="toast" id="toast" role="status" popover="manual"></div>
 
   <script src="js/dates.js"></script>
   <script src="js/school.js"></script>
   <script src="js/optimizer.js"></script>
+  <script src="js/storage.js"></script>
   <script src="js/app.js"></script>
 </body>
 </html>

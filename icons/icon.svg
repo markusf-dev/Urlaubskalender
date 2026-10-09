@@ -1,0 +1,22 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <rect width="512" height="512" rx="0" fill="#2563eb"/>
+  <!-- calendar sheet -->
+  <rect x="96" y="120" width="320" height="292" rx="28" fill="#fff"/>
+  <path d="M96 148a28 28 0 0 1 28-28h264a28 28 0 0 1 28 28v44H96z" fill="#f6a5b3"/>
+  <rect x="160" y="92" width="24" height="64" rx="12" fill="#fff"/>
+  <rect x="328" y="92" width="24" height="64" rx="12" fill="#fff"/>
+  <!-- day grid: one week off in a row -->
+  <g fill="#e5e7eb">
+    <rect x="128" y="220" width="52" height="40" rx="8"/>
+    <rect x="128" y="276" width="52" height="40" rx="8"/>
+    <rect x="128" y="332" width="52" height="40" rx="8"/>
+    <rect x="332" y="220" width="52" height="40" rx="8"/>
+    <rect x="332" y="332" width="52" height="40" rx="8"/>
+    <rect x="196" y="332" width="52" height="40" rx="8"/>
+    <rect x="264" y="332" width="52" height="40" rx="8"/>
+    <rect x="196" y="220" width="52" height="40" rx="8"/>
+  </g>
+  <rect x="264" y="220" width="52" height="40" rx="8" fill="#b9d3ff"/>
+  <rect x="196" y="276" width="188" height="40" rx="8" fill="#2563eb"/>
+  <rect x="392" y="200" width="12" height="190" rx="6" fill="#8fe07b"/>
+</svg>

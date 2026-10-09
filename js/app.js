@@ -47,8 +47,42 @@
     return defaultState();
   }
 
+  // The household plan; year, selection and suggestion options stay per device.
+  const SHARED_KEYS = ['region', 'members', 'budgets', 'vacations', 'presets'];
+
+  function sharedData() {
+    const data = { app: 'urlaubskalender', version: 1 };
+    for (const k of SHARED_KEYS) data[k] = state[k];
+    return data;
+  }
+
+  let lastSharedJson = null;
   function save() {
     try { localStorage.setItem(STORE_KEY, JSON.stringify(state)); } catch (e) { /* ignore */ }
+    const json = JSON.stringify(sharedData());
+    if (json !== lastSharedJson) {
+      lastSharedJson = json;
+      window.KalStorage.save(JSON.parse(json));
+    }
+  }
+
+  function validShared(data) {
+    return data && data.app === 'urlaubskalender' && Array.isArray(data.members) && data.members.length > 0;
+  }
+
+  // Replaces the household plan with data from a file (import, linked file, other person's change).
+  function applyShared(data) {
+    const regionChanged = data.region && data.region !== state.region;
+    for (const k of SHARED_KEYS) if (data[k] !== undefined) state[k] = data[k];
+    const ids = state.members.map((m) => m.id);
+    state.selected = state.selected.filter((id) => ids.includes(id));
+    if (!state.selected.length) state.selected = ids;
+    lastSharedJson = JSON.stringify(sharedData());
+    try { localStorage.setItem(STORE_KEY, JSON.stringify(state)); } catch (e) { /* ignore */ }
+    suggestion = null;
+    holidayCache.clear();
+    render();
+    if (regionChanged) loadSchool();
   }
 
   let state = load();
@@ -509,9 +543,14 @@
   function toast(msg) {
     const el = $('toast');
     el.textContent = msg;
+    // As a popover the toast sits in the top layer, i.e. also above the settings dialog.
+    if (el.showPopover) {
+      if (el.matches(':popover-open')) el.hidePopover();
+      el.showPopover();
+    }
     el.classList.add('show');
     clearTimeout(toastTimer);
-    toastTimer = setTimeout(() => el.classList.remove('show'), 2800);
+    toastTimer = setTimeout(() => el.classList.remove('show'), Math.max(2800, msg.length * 60));
   }
 
   // ---------- suggestion ----------
@@ -809,6 +848,131 @@
     render();
   }
 
+  // ---------- settings: data file, backup, sharing ----------
+
+  function renderStorage(info) {
+    const S = window.KalStorage;
+    const time = info.lastSaved ? ` · zuletzt gespeichert ${info.lastSaved.toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' })}` : '';
+    const status = {
+      none: 'Die Daten liegen nur in diesem Browser.',
+      connected: `Verknüpft mit <b>${esc(info.name)}</b>${time}`,
+      'needs-permission': `Verknüpft mit <b>${esc(info.name)}</b> – der Browser braucht deine Erlaubnis für den Zugriff.`,
+      error: `Die Datei <b>${esc(info.name || '')}</b> ist nicht erreichbar (verschoben oder gelöscht?).`,
+    }[info.status];
+    $('storage-status').innerHTML = status;
+
+    let actions = '';
+    if (!S.supported) {
+      $('storage-hint').textContent = 'Dieser Browser (z. B. Safari, Firefox oder iPhone) kann keine Datei dauerhaft verknüpfen. '
+        + 'Nutze dort Export und Import, oder öffne die App am Computer in Chrome oder Edge.';
+    } else {
+      $('storage-hint').textContent = 'Jede Änderung wird sofort in die Datei geschrieben. Ändert jemand anderes die Datei, '
+        + 'wird sein Stand innerhalb weniger Sekunden übernommen.';
+      if (info.status === 'needs-permission') actions += '<button type="button" class="primary" data-storage="grant">Zugriff erlauben</button>';
+      if (info.status !== 'connected') {
+        actions += '<button type="button" data-storage="create">Neue Datei anlegen …</button>'
+          + '<button type="button" data-storage="open">Vorhandene Datei öffnen …</button>';
+      }
+      if (info.status !== 'none') actions += '<button type="button" data-storage="disconnect">Verknüpfung lösen</button>';
+    }
+    $('storage-actions').innerHTML = actions;
+
+    // Header hint so a missing permission after a restart is noticed.
+    $('storage-pill').hidden = info.status !== 'needs-permission' && info.status !== 'error';
+    $('storage-pill').textContent = info.status === 'error' ? '⚠ Datendatei nicht erreichbar' : '⚠ Zugriff auf Datendatei erlauben';
+  }
+
+  async function storageAction(action) {
+    const S = window.KalStorage;
+    try {
+      if (action === 'grant') {
+        const data = await S.grantPermission();
+        if (data && validShared(data)) applyShared(data);
+        else if (data === null && S.info().status === 'connected') { lastSharedJson = null; save(); } // empty file: fill it
+      } else if (action === 'create') {
+        await S.createFile(sharedData());
+        toast('Datei angelegt. Änderungen werden ab jetzt dort gespeichert.');
+      } else if (action === 'open') {
+        const data = await S.openFile();
+        if (data && validShared(data)) {
+          applyShared(data);
+          toast('Datei geöffnet. Der Plan aus der Datei wird jetzt verwendet.');
+        } else if (!data) {
+          lastSharedJson = null;
+          save();
+          toast('Die Datei war leer – der aktuelle Plan wurde hineingeschrieben.');
+        } else {
+          await S.disconnect();
+          toast('Das ist keine Urlaubskalender-Datei.');
+        }
+      } else if (action === 'disconnect') {
+        await S.disconnect();
+        toast('Verknüpfung gelöst. Die Daten bleiben in diesem Browser.');
+      }
+    } catch (e) {
+      if (e.name !== 'AbortError') toast(`Das hat nicht geklappt: ${e.message}`);
+    }
+  }
+
+  function exportFile() {
+    const blob = new Blob([JSON.stringify(sharedData(), null, 2)], { type: 'application/json' });
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = `urlaubskalender-${new Date().toISOString().slice(0, 10)}.json`;
+    a.click();
+    setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+  }
+
+  async function importFile(file) {
+    try {
+      const data = JSON.parse(await file.text());
+      if (!validShared(data)) { toast('Das ist keine Urlaubskalender-Datei.'); return; }
+      if (!confirm('Der aktuelle Plan wird durch den Inhalt der Datei ersetzt. Fortfahren?')) return;
+      applyShared(data);
+      lastSharedJson = null;
+      save(); // also update a linked data file
+      toast('Import abgeschlossen.');
+    } catch (e) {
+      toast('Die Datei konnte nicht gelesen werden.');
+    }
+  }
+
+  function bindSettings() {
+    const dialog = $('settings');
+    $('settings-open').addEventListener('click', () => dialog.showModal());
+    $('storage-pill').addEventListener('click', () => dialog.showModal());
+    dialog.addEventListener('click', (e) => { if (e.target === dialog) dialog.close(); }); // backdrop
+    $('storage-actions').addEventListener('click', (e) => {
+      const btn = e.target.closest('[data-storage]');
+      if (btn) storageAction(btn.dataset.storage);
+    });
+    $('export').addEventListener('click', exportFile);
+    $('import').addEventListener('change', (e) => {
+      if (e.target.files[0]) importFile(e.target.files[0]);
+      e.target.value = '';
+    });
+
+    lastSharedJson = JSON.stringify(sharedData());
+    window.KalStorage.init({
+      onStatus: renderStorage,
+      onExternalChange: (data, { conflict }) => {
+        if (!validShared(data)) return;
+        applyShared(data);
+        toast(conflict
+          ? 'Die Datei wurde inzwischen von jemand anderem geändert. Deren Stand ist jetzt geladen – bitte deine letzte Änderung wiederholen.'
+          : 'Änderungen aus der Datendatei übernommen.');
+      },
+    }).then((data) => {
+      if (data && validShared(data)) applyShared(data);
+    });
+    renderStorage(window.KalStorage.info());
+  }
+
   bind();
+  bindSettings();
   loadSchool();
+
+  if ('serviceWorker' in navigator && location.protocol.startsWith('http')) {
+    navigator.serviceWorker.register('sw.js').catch(() => { /* offline support is optional */ });
+  }
 })();

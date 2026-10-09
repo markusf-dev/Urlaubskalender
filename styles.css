@@ -243,8 +243,50 @@ details summary { cursor: pointer; color: var(--accent); margin-top: 8px; }
 .sw-sugg { background: repeating-linear-gradient(135deg, var(--sugg) 0 3px, #fff4d1 3px 6px); }
 .sw-run { width: 4px; background: var(--run); border: 0; }
 
+.head-actions { display: flex; gap: 6px; align-items: center; }
+.pill { background: #fff4e5; border-color: #f5c37a; color: #8a4b00; }
+
+.dialog {
+  width: min(520px, calc(100vw - 32px));
+  max-height: calc(100vh - 48px);
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  padding: 0 20px 16px;
+  color: var(--text);
+}
+.dialog::backdrop { background: rgba(15, 23, 42, .35); }
+.dialog-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  position: sticky;
+  top: 0;
+  background: #fff;
+  padding: 16px 0 8px;
+}
+.dialog-head h2 { font-size: 17px; margin: 0; }
+.dialog-head .link { font-size: 18px; }
+.dialog section { border-top: 1px solid var(--line); padding: 4px 0 8px; }
+.dialog h3 { margin-top: 10px; }
+.dialog p { margin: 6px 0; }
+.btn-row { display: flex; flex-wrap: wrap; gap: 6px; margin: 8px 0; }
+.btn-row:empty { display: none; }
+label.button {
+  border: 1px solid var(--line);
+  background: #fff;
+  border-radius: 6px;
+  padding: 5px 10px;
+  cursor: pointer;
+}
+label.button:hover { border-color: #a9b0bb; }
+.steps { padding-left: 18px; margin: 6px 0; }
+.steps li { margin-bottom: 4px; }
+
 .toast {
   position: fixed;
+  inset: auto;
+  margin: 0;
+  border: 0;
   left: 50%;
   bottom: 20px;
   transform: translate(-50%, 20px);

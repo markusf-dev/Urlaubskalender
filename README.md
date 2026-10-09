@@ -2,7 +2,16 @@
 
 Jahreskalender im Stil der schulferien.org-Druckvorlage (12 Monatsspalten, Feiertage, Schulferien, KW) zur Urlaubsplanung für eine oder mehrere Personen im Haushalt.
 
-Einfach `index.html` im Browser öffnen – kein Build, keine Abhängigkeiten. Daten bleiben lokal im Browser (localStorage).
+**App:** https://markusf-dev.github.io/Urlaubskalender/. Sie lässt sich installieren: auf dem iPhone über Teilen → „Zum Home-Bildschirm“, in Chrome/Edge über „Installieren“, in Safari am Mac über „Zum Dock hinzufügen“. Danach funktioniert sie auch offline.
+
+Lokal reicht es, `index.html` im Browser zu öffnen – kein Build, keine Abhängigkeiten.
+
+## Daten
+
+- Standardmäßig liegen die Daten nur im Browser (localStorage).
+- **Einstellungen → Datenablage** (Chrome/Edge am Computer): Der Plan wird in einer JSON-Datei gespeichert, deren Ort du selbst wählst. Liegt die Datei in einem geteilten Cloud-Ordner (iCloud Drive, Dropbox, OneDrive), können mehrere Personen daran arbeiten. Änderungen anderer werden alle 5 Sekunden erkannt und übernommen. Bei gleichzeitigen Änderungen gewinnt der zuerst gespeicherte Stand, und die andere Person bekommt einen Hinweis.
+- In der Datei stehen nur die gemeinsamen Daten (Bundesland, Personen, Anspruch, Urlaube, Vorlagen). Jahr, Auswahl und Vorschlagseinstellungen bleiben pro Gerät.
+- Safari, Firefox und das iPhone können keine Datei dauerhaft verknüpfen. Dort gibt es Export und Import.
 
 ## Funktionen
 
@@ -19,5 +28,7 @@ Einfach `index.html` im Browser öffnen – kein Build, keine Abhängigkeiten. D
 ```
 npm test   # Optimierer- und Datumstests (node:test)
 ```
+
+Nach Änderungen an Dateien die Version `CACHE` in `sw.js` erhöhen. Dann laden installierte Apps die neue Version.
 
 `js/optimizer.js` arbeitet mit dynamischer Programmierung über Tag × Restbudget (halbe Tage) × Anzahl Blöcke.
