@@ -1,2 +1,7 @@
 node_modules/
 .DS_Store
+
+# Persönliche Daten: Datendatei und Exporte des Urlaubskalenders
+# (enthalten Namen und Urlaube) gehören nicht ins Repository.
+*.json
+!package.json
