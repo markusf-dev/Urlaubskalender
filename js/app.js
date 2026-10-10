@@ -91,6 +91,7 @@
   let state = load();
   let school = { list: [], source: 'loading' };
   let suggestion = null; // { blocks, opportunities, members }
+  let editing = null; // vacation entry being edited: { start, end, oldMembers, members }
   let model = null;
 
   // ---------- helpers ----------
@@ -416,12 +417,48 @@
     commit();
   }
 
+  function clearEntryForm() {
+    $('range-from').value = '';
+    $('range-to').value = '';
+    $('range-extent').value = 'full';
+    $('range-title').value = '';
+  }
+
+  // Loads a listed vacation entry into the form ("Urlaub bearbeiten").
+  function startEdit(block) {
+    const days = [];
+    const extents = [];
+    for (let d = block.start; d <= block.end; d = D.addDays(d, 1)) {
+      const day = model.byDate.get(d);
+      const booked = block.members.filter((id) => day.per[id].manualVac);
+      if (!booked.length) continue;
+      days.push(d);
+      booked.forEach((id) => extents.push(day.per[id].halfManual || 'full'));
+    }
+    if (!days.length) return;
+    const title = state.titles.find((t) => t.from <= block.end && t.to >= block.start
+      && t.members.some((id) => block.members.includes(id)));
+    editing = { start: block.start, end: block.end, oldMembers: [...block.members], members: [...block.members] };
+    $('range-from').value = days[0];
+    $('range-to').value = days[days.length - 1];
+    $('range-extent').value = extents.every((x) => x === extents[0]) ? extents[0] : 'full';
+    $('range-title').value = title ? title.text : '';
+    render();
+    $('range-from').closest('.card').scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }
+
+  // People the entry form applies to: the entry being edited, or the "Für" tags.
+  const entryMembers = () => (editing ? editing.members : state.selected);
+
   function rangeCost(a, b, memberId, half = null) {
     if (a > b) [a, b] = [b, a];
+    // While editing, the entry's current days count as free to rebook.
+    const ignore = editing && editing.oldMembers.includes(memberId) ? editing : null;
     let cost = 0;
     for (let d = a; d <= b; d = D.addDays(d, 1)) {
       const info = dayInfo(d, memberId);
-      if (!info.free && !info.blockPreset && !manualSet(+d.slice(0, 4), memberId).has(d)) {
+      const booked = manualSet(+d.slice(0, 4), memberId).has(d) && !(ignore && d >= ignore.start && d <= ignore.end);
+      if (!info.free && !info.blockPreset && !booked) {
         cost += half ? Math.min(info.weight, 0.5) : info.weight;
       }
     }
@@ -444,7 +481,10 @@
     $('sug-blocks').value = String(state.opt.maxBlocks);
     $('sug-school').value = state.opt.school;
     $('entry-who').hidden = !multi();
-    $('entry-members').innerHTML = personTags(state.selected, 'data-entry-member');
+    $('entry-members').innerHTML = personTags(entryMembers(), 'data-entry-member');
+    $('entry-title').textContent = editing ? 'Urlaub bearbeiten' : 'Urlaub eintragen';
+    $('range-add').textContent = editing ? 'Speichern' : 'Eintragen';
+    $('range-cancel').hidden = !editing;
     if (!suggestion) $('sug-budget').value = Math.max(0, jointRest());
 
     renderMembers();
@@ -579,7 +619,8 @@
             ${b.presets.map((p) => `<span class="tag">${esc(p.label || 'Vorlage')}</span>`).join(' ')}</div>
           ${multi() ? chips(b, i) : ''}
         </div>
-        ${b.manual ? `<button type="button" class="link" data-remove-block="${i}" title="Eingetragenen Urlaub entfernen">✕</button>` : ''}
+        ${b.manual ? `<button type="button" class="link" data-edit-block="${i}" title="Bearbeiten">✎</button>
+        <button type="button" class="link" data-remove-block="${i}" title="Eingetragenen Urlaub entfernen">✕</button>` : ''}
       </li>`).join('');
   }
 
@@ -648,7 +689,7 @@
       return;
     }
     const half = $('range-extent').value === 'full' ? null : $('range-extent').value;
-    const costs = selected().map((m) => ({ m, cost: rangeCost(a, b, m.id, half) }));
+    const costs = state.members.filter((m) => entryMembers().includes(m.id)).map((m) => ({ m, cost: rangeCost(a, b, m.id, half) }));
     const same = costs.every((c) => c.cost === costs[0].cost);
     $('range-preview').textContent = same
       ? `Kostet ${daysLabel(costs[0].cost)} Urlaub${costs.length > 1 ? ' je Person' : ''}.`
@@ -730,6 +771,16 @@
     $('entry-members').addEventListener('click', (e) => {
       const id = e.target.closest('[data-entry-member]')?.dataset.entryMember;
       if (!id) return;
+      if (editing) {
+        if (editing.members.includes(id)) {
+          if (editing.members.length === 1) { toast('Mindestens eine Person muss ausgewählt sein.'); return; }
+          editing.members = editing.members.filter((x) => x !== id);
+        } else {
+          editing.members = state.members.map((m) => m.id).filter((x) => x === id || editing.members.includes(x));
+        }
+        render();
+        return;
+      }
       if (state.selected.includes(id)) {
         if (state.selected.length === 1) { toast('Mindestens eine Person muss ausgewählt sein.'); return; }
         state.selected = state.selected.filter((x) => x !== id);
@@ -744,20 +795,39 @@
       const half = $('range-extent').value === 'full' ? null : $('range-extent').value;
       const text = $('range-title').value.trim();
       const [from, to] = a <= b ? [a, b] : [b, a];
-      if (!setRange(a, b, true, state.selected, half)) toast('Im Zeitraum gibt es keine Arbeitstage, die noch frei sind.');
+      const members = [...entryMembers()];
+      const wasEditing = !!editing;
+      if (editing) {
+        // Replace the entry: remove its days and its title, then book the new values.
+        const old = editing;
+        setRange(old.start, old.end, false, old.oldMembers);
+        state.titles = state.titles.flatMap((t) => {
+          if (!(t.from <= old.end && t.to >= old.start)) return [t];
+          const rest = t.members.filter((id) => !old.oldMembers.includes(id));
+          return rest.length ? [{ ...t, members: rest }] : [];
+        });
+        editing = null;
+      }
+      if (!setRange(a, b, true, members, half)) toast('Im Zeitraum gibt es keine Arbeitstage, die noch frei sind.');
+      else if (wasEditing) toast('Urlaub geändert.');
       if (text) {
         // A new title for the same days replaces the old one.
         state.titles = state.titles.filter((t) => !(t.from === from && t.to === to));
-        state.titles.push({ id: `t-${Date.now()}`, from, to, text, members: [...state.selected] });
+        state.titles.push({ id: `t-${Date.now()}`, from, to, text, members });
       }
-      $('range-from').value = '';
-      $('range-to').value = '';
-      $('range-extent').value = 'full';
-      $('range-title').value = '';
+      clearEntryForm();
       commit();
     });
 
+    $('range-cancel').addEventListener('click', () => {
+      editing = null;
+      clearEntryForm();
+      render();
+    });
+
     $('blocks').addEventListener('click', (e) => {
+      const edit = e.target.closest('[data-edit-block]');
+      if (edit) { startEdit(model.blocks[+edit.dataset.editBlock]); return; }
       const chip = e.target.closest('[data-member]');
       if (chip) {
         toggleBlockMember(model.blocks[+chip.dataset.block], chip.dataset.member);
@@ -766,6 +836,7 @@
       const btn = e.target.closest('[data-remove-block]');
       if (!btn) return;
       const b = model.blocks[+btn.dataset.removeBlock];
+      if (editing) { editing = null; clearEntryForm(); }
       setRange(b.start, b.end, false, b.members);
       commit();
     });
