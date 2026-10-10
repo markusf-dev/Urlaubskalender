@@ -1,7 +1,7 @@
 // Offline support: serves the app from cache and refreshes it in the background
 // (stale-while-revalidate), so a new version is active on the next start.
 // Requests to other origins (school holiday API) are not touched.
-const CACHE = 'urlaubskalender-v3';
+const CACHE = 'urlaubskalender-v4';
 const FILES = [
   './',
   'index.html',
@@ -10,6 +10,8 @@ const FILES = [
   'js/dates.js',
   'js/school.js',
   'js/optimizer.js',
+  'js/config.js',
+  'js/sync.js',
   'js/app.js',
   'icons/icon.svg',
   'icons/icon-192.png',

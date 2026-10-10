@@ -1,7 +1,10 @@
 node_modules/
 .DS_Store
 
-# Persönliche Daten: Datendatei und Exporte des Urlaubskalenders
+# Cloudflare Worker: local database and build artefacts
+.wrangler/
+.dev.vars
+
+# Persönliche Daten: Datendateien und Exporte des Urlaubskalenders
 # (enthalten Namen und Urlaube) gehören nicht ins Repository.
-*.json
-!package.json
+urlaubskalender*.json

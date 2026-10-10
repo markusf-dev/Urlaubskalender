@@ -1,0 +1,14 @@
+{
+  "name": "urlaubskalender-sync",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Speicherdienst für verschlüsselte Haushaltspläne des Urlaubskalenders (Cloudflare Worker + D1)",
+  "scripts": {
+    "dev": "wrangler d1 execute urlaubskalender --local --file=schema.sql && wrangler dev --port 8787",
+    "db:init": "wrangler d1 execute urlaubskalender --remote --file=schema.sql",
+    "deploy": "wrangler deploy"
+  },
+  "devDependencies": {
+    "wrangler": "^4.149.0"
+  }
+}

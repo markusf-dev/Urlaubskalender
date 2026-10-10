@@ -33,6 +33,29 @@
         <p class="muted small">Einträge und Vorschläge gelten für die angehakten Personen. Zahl = Urlaubsanspruch im Jahr.</p>
         <ul class="list members" id="members"></ul>
         <button type="button" id="member-add">+ Person hinzufügen</button>
+
+        <div class="share" id="share" hidden>
+          <div data-when="off">
+            <p class="share-notice small" id="share-notice" hidden></p>
+            <p class="muted small">Gemeinsam planen: Wer den Link bekommt, sieht und bearbeitet diesen Plan auf seinem Gerät – ohne Konto. Der Plan wird verschlüsselt gespeichert.</p>
+            <button type="button" data-share="create">🔗 Plan teilen …</button>
+          </div>
+          <div data-when="on" hidden>
+            <p class="share-status" id="share-status"></p>
+            <div class="btn-row">
+              <button type="button" class="primary" data-share="send" hidden>Link senden …</button>
+              <button type="button" data-share="copy">Link kopieren</button>
+            </div>
+            <details>
+              <summary>Weitere Optionen</summary>
+              <p class="muted small">Jeder mit dem Link kann den Plan sehen und ändern. Geht der Link auf allen Geräten verloren, ist der Plan nicht wiederherstellbar – am besten zusätzlich im Passwort-Manager sichern.</p>
+              <div class="btn-row">
+                <button type="button" data-share="leave">Auf diesem Gerät nicht mehr teilen</button>
+                <button type="button" class="danger" data-share="destroy">Gemeinsamen Plan löschen</button>
+              </div>
+            </details>
+          </div>
+        </div>
       </section>
 
       <section class="card">
@@ -150,9 +173,11 @@
   </div>
   <div class="toast" id="toast" role="status" popover="manual"></div>
 
+  <script src="js/config.js"></script>
   <script src="js/dates.js"></script>
   <script src="js/school.js"></script>
   <script src="js/optimizer.js"></script>
+  <script src="js/sync.js"></script>
   <script src="js/app.js"></script>
 </body>
 </html>

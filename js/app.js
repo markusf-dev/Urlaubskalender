@@ -47,8 +47,43 @@
     return defaultState();
   }
 
+  // Everything that belongs to the household's plan and is shared via the
+  // household link. Year, ticked people and the collapsed sidebar stay per device.
+  const SHARED_KEYS = ['region', 'members', 'budgets', 'vacations', 'presets', 'opt'];
+
+  function sharedData() {
+    const data = { app: 'urlaubskalender', version: 1 };
+    for (const k of SHARED_KEYS) data[k] = state[k];
+    return data;
+  }
+
+  let lastSharedJson = null;
   function save() {
     try { localStorage.setItem(STORE_KEY, JSON.stringify(state)); } catch (e) { /* ignore */ }
+    const json = JSON.stringify(sharedData());
+    if (json !== lastSharedJson) {
+      lastSharedJson = json;
+      window.KalSync.save(JSON.parse(json));
+    }
+  }
+
+  function validShared(data) {
+    return data && data.app === 'urlaubskalender' && Array.isArray(data.members) && data.members.length > 0;
+  }
+
+  // Replaces the plan with the shared one (joining a household, changes by others).
+  function applyShared(data) {
+    const regionChanged = data.region && data.region !== state.region;
+    for (const k of SHARED_KEYS) if (data[k] !== undefined) state[k] = data[k];
+    const ids = state.members.map((m) => m.id);
+    state.selected = state.selected.filter((id) => ids.includes(id));
+    if (!state.selected.length) state.selected = ids;
+    lastSharedJson = JSON.stringify(sharedData());
+    try { localStorage.setItem(STORE_KEY, JSON.stringify(state)); } catch (e) { /* ignore */ }
+    suggestion = null;
+    holidayCache.clear();
+    render();
+    if (regionChanged) loadSchool();
   }
 
   let state = load();
@@ -712,7 +747,10 @@
         else { t.checked = true; toast('Mindestens eine Person muss ausgewählt sein.'); return; }
         commit();
       } else if (t.dataset.name) {
-        member(t.dataset.name).name = t.value.trim() || 'Person';
+        const name = t.value.trim() || 'Person';
+        // Re-rendering removes the focused input, which can fire another change.
+        if (member(t.dataset.name).name === name) return;
+        member(t.dataset.name).name = name;
         commit({ keepSuggestion: true });
       } else if (t.dataset.budget) {
         const v = parseFloat(t.value);
@@ -814,7 +852,109 @@
     render();
   }
 
+  // ---------- sharing via household link ----------
+
+  function renderShare(info) {
+    const box = $('share');
+    box.hidden = !info.enabled;
+    if (!info.enabled) return;
+    const on = info.status !== 'off' && info.status !== 'deleted';
+    box.querySelector('[data-when="off"]').hidden = on;
+    box.querySelector('[data-when="on"]').hidden = !on;
+
+    const notice = $('share-notice');
+    notice.hidden = info.status !== 'deleted';
+    notice.textContent = 'Der gemeinsame Plan wurde von jemandem gelöscht. Deine Kopie bleibt in diesem Browser.';
+
+    const time = info.lastSync ? info.lastSync.toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' }) : '';
+    const el = $('share-status');
+    el.className = `share-status${info.status === 'offline' || info.status === 'error' ? ' warn' : ''}`;
+    el.innerHTML = {
+      syncing: '🔗 <b>Gemeinsamer Plan</b> · wird abgeglichen …',
+      synced: `🔗 <b>Gemeinsamer Plan</b> · abgeglichen ${time}`,
+      offline: '⚠ Offline – Änderungen werden übertragen, sobald du wieder online bist.',
+      error: '⚠ Der Speicherdienst ist gerade nicht erreichbar. Änderungen bleiben gespeichert und werden später übertragen.',
+    }[info.status] || '';
+    box.querySelector('[data-share="send"]').hidden = !navigator.share;
+  }
+
+  async function copyLink() {
+    const url = window.KalSync.link();
+    try {
+      await navigator.clipboard.writeText(url);
+      toast('Link kopiert. Schick ihn allen, die mitplanen sollen.');
+    } catch (e) {
+      prompt('Link zum gemeinsamen Plan:', url);
+    }
+  }
+
+  async function shareAction(action) {
+    const S = window.KalSync;
+    try {
+      if (action === 'create') {
+        await S.create(sharedData());
+        lastSharedJson = JSON.stringify(sharedData());
+        toast('Der Plan wird jetzt geteilt. Schick den Link an alle, die mitplanen sollen.');
+      } else if (action === 'send') {
+        try {
+          await navigator.share({ title: 'Urlaubskalender', text: 'Unser gemeinsamer Urlaubsplan', url: S.link() });
+        } catch (e) {
+          if (e.name !== 'AbortError') await copyLink();
+        }
+      } else if (action === 'copy') {
+        await copyLink();
+      } else if (action === 'leave') {
+        if (!confirm('Auf diesem Gerät nicht mehr mitplanen? Dein Plan bleibt hier erhalten, Änderungen werden aber nicht mehr abgeglichen. Mit dem Link kannst du jederzeit wieder beitreten.')) return;
+        S.leave();
+        toast('Dieses Gerät plant jetzt wieder allein.');
+      } else if (action === 'destroy') {
+        if (!confirm('Den gemeinsamen Plan für alle löschen? Der Link funktioniert danach nicht mehr. Jeder behält nur die Kopie in seinem Browser.')) return;
+        await S.destroy();
+        toast('Der gemeinsame Plan wurde gelöscht.');
+      }
+    } catch (e) {
+      toast(e.message || 'Das hat nicht geklappt.');
+    }
+  }
+
+  async function handleInvite(key) {
+    const member = !!window.KalSync.link();
+    const question = member
+      ? 'Du wurdest zu einem anderen gemeinsamen Urlaubsplan eingeladen. Wechseln? Der bisherige gemeinsame Plan wird auf diesem Gerät nicht mehr abgeglichen.'
+      : 'Du wurdest zu einem gemeinsamen Urlaubsplan eingeladen. Beitreten? Der Plan auf diesem Gerät wird durch den gemeinsamen ersetzt.';
+    if (!confirm(question)) return;
+    try {
+      const plan = await window.KalSync.join(key);
+      if (!validShared(plan)) throw new Error('Der Link enthält keinen Urlaubsplan.');
+      applyShared(plan);
+      toast('Du planst jetzt gemeinsam. Änderungen werden automatisch abgeglichen.');
+    } catch (e) {
+      toast(e.message);
+    }
+  }
+
+  function bindShare() {
+    $('share').addEventListener('click', (e) => {
+      const btn = e.target.closest('[data-share]');
+      if (btn) shareAction(btn.dataset.share);
+    });
+    lastSharedJson = JSON.stringify(sharedData());
+    window.KalSync.init({
+      getPlan: sharedData,
+      onStatus: renderShare,
+      onRemote: (plan, { conflict }) => {
+        if (!validShared(plan)) return;
+        applyShared(plan);
+        if (conflict) toast('Jemand hat den Plan gleichzeitig geändert. Dessen Stand ist jetzt geladen – bitte deine letzte Änderung wiederholen.');
+      },
+    }).then(({ invite }) => {
+      if (invite) handleInvite(invite);
+    });
+    renderShare(window.KalSync.info());
+  }
+
   bind();
+  bindShare();
   loadSchool();
 
   if ('serviceWorker' in navigator && location.protocol.startsWith('http')) {

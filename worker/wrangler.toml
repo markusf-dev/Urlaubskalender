@@ -1,0 +1,20 @@
+name = "urlaubskalender-sync"
+main = "src/index.js"
+compatibility_date = "2026-10-01"
+
+# Households untouched for this many days are deleted by the daily cron.
+[vars]
+ALLOWED_ORIGINS = "https://markusf-dev.github.io,http://localhost:8766"
+RETENTION_DAYS = "730"
+
+[[d1_databases]]
+binding = "DB"
+database_name = "urlaubskalender"
+# Filled in after `npx wrangler d1 create urlaubskalender` (see worker/README.md).
+database_id = "00000000-0000-0000-0000-000000000000"
+
+[triggers]
+crons = ["17 3 * * *"]
+
+[observability]
+enabled = false
