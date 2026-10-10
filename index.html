@@ -105,38 +105,62 @@
         <details>
           <summary>Vorlage hinzufügen</summary>
           <form id="preset-form" class="preset-form">
+            <p class="form-title" id="preset-form-title" hidden>Vorlage bearbeiten</p>
             <label class="field">Art
               <select name="type">
-                <option value="block">Fester Urlaub (Zeitraum)</option>
+                <option value="block">Fester Urlaub</option>
                 <option value="custom">Brauchtumstag / regionaler Feiertag</option>
                 <option value="weight">Tag anders anrechnen (Datum)</option>
               </select>
             </label>
+            <div data-for="block">
+              <div class="row">
+                <label class="field">Von (TT.MM.) <input name="from" placeholder="24.12."></label>
+                <label class="field">Bis (TT.MM.) <input name="to" placeholder="leer = 1 Tag"></label>
+              </div>
+              <div class="row">
+                <label class="field">Umfang
+                  <select name="extent">
+                    <option value="full">ganzer Tag</option>
+                    <option value="am">½ Tag vormittags</option>
+                    <option value="pm">½ Tag nachmittags</option>
+                  </select>
+                </label>
+                <label class="field">Zählt als
+                  <select name="blockCount">
+                    <option value="1">1 Urlaubstag</option>
+                    <option value="0.5">½ Urlaubstag</option>
+                  </select>
+                </label>
+              </div>
+            </div>
             <div class="row" data-for="custom" hidden>
               <label class="field">Tag <select name="rule"></select></label>
               <label class="field">Zählt als
                 <select name="customWeight">
-                  <option value="0">0 Tage (frei, kein Urlaub)</option>
+                  <option value="0">0 Tage (frei)</option>
                   <option value="0.5">½ Urlaubstag</option>
+                  <option value="1">1 Urlaubstag</option>
                 </select>
               </label>
-            </div>
-            <div class="row" data-for="block">
-              <label class="field">Von (TT.MM.) <input name="from" placeholder="24.12."></label>
-              <label class="field">Bis (TT.MM.) <input name="to" placeholder="31.12."></label>
             </div>
             <div class="row" data-for="weight" hidden>
               <label class="field">Tag (TT.MM.) <input name="date" placeholder="24.12."></label>
               <label class="field">Zählt als
                 <select name="weight">
                   <option value="0.5">½ Urlaubstag</option>
-                  <option value="0">0 Tage (frei, kein Urlaub)</option>
+                  <option value="0">0 Tage (frei)</option>
+                  <option value="1">1 Urlaubstag</option>
                 </select>
               </label>
             </div>
+            <p class="muted small" data-for="weight" hidden>„1 Urlaubstag“ macht einen gesetzlichen Feiertag zum Arbeitstag, z. B. wenn der Arbeitgeber in einem anderen Bundesland sitzt.</p>
             <label class="field">Bezeichnung (optional) <input name="label" placeholder="z. B. Heiligabend"></label>
             <fieldset class="field who" id="preset-members"><legend>Gilt für</legend></fieldset>
-            <button type="submit" class="primary">Hinzufügen</button>
+            <div class="btn-row">
+              <button type="submit" class="primary">Hinzufügen</button>
+              <button type="button" id="preset-cancel" hidden>Abbrechen</button>
+            </div>
           </form>
         </details>
       </section>

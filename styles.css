@@ -115,6 +115,7 @@ h3 { font-size: 12px; margin: 14px 0 0; color: var(--muted); font-weight: 600; }
 .members .sub.warn { color: #b42318; }
 #member-add { margin-top: 8px; width: 100%; }
 .who { border: 0; padding: 0; margin: 0 0 8px; }
+.who[hidden] { display: none; }
 .who legend { padding: 0; margin-bottom: 2px; }
 .who label { display: inline-flex; align-items: center; gap: 6px; margin: 2px 0; color: var(--text); font-size: 13px; }
 .field.who input { width: auto; margin: 0; }
@@ -137,6 +138,8 @@ h3 { font-size: 12px; margin: 14px 0 0; color: var(--muted); font-weight: 600; }
 
 details summary { cursor: pointer; color: var(--accent); margin-top: 8px; }
 .preset-form { margin-top: 8px; }
+.form-title { font-weight: 600; margin: 0 0 8px; }
+.field select:disabled { color: var(--muted); background: var(--bg); }
 
 /* ---------- calendar ---------- */
 

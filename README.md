@@ -17,10 +17,10 @@ Die App läuft im Browser. Es gibt kein Konto und keine Kosten. Dein Plan bleibt
   - ob Schulferien egal sind, gemieden werden oder ob nur in den Schulferien geplant wird
 
   Für mehrere Personen sucht die App gemeinsamen Urlaub, ohne den Restanspruch einer Person zu überschreiten. Zusätzlich listet sie die besten Brückentage auf. Jeder Vorschlag lässt sich mit einem Klick übernehmen.
-- **Vorlagen:** Regeln, die jedes Jahr gelten, jeweils für alle oder einzelne Personen:
-  - fester Urlaub, z. B. 24.12.–31.12.
-  - Tage, die nur halb zählen, z. B. Heiligabend und Silvester
-  - Brauchtumstage wie Rosenmontag als freier Tag, der nicht vom Urlaub abgeht
+- **Vorlagen:** Regeln, die jedes Jahr gelten, jeweils für alle oder einzelne Personen. Jede Vorlage lässt sich mit ✎ bearbeiten.
+  - **Fester Urlaub:** ein Zeitraum (z. B. 24.12.–31.12.) oder ein einzelner Tag, ganztags oder als halber Tag vormittags oder nachmittags. Ein ganzer Tag kann als 1 oder als ½ Urlaubstag zählen, wenn eine Sonderregelung gilt.
+  - **Brauchtumstage** wie Rosenmontag und **regionale Feiertage:** zählen als 0 Tage (frei), ½ oder 1 Urlaubstag.
+  - **Tag anders anrechnen:** ein beliebiges Datum zählt 0, ½ oder 1 Urlaubstag, z. B. Heiligabend als halber Tag. „1 Urlaubstag“ macht einen gesetzlichen Feiertag zum Arbeitstag, etwa wenn der Arbeitgeber in einem anderen Bundesland sitzt.
 - **Drucken:** Der Kalender passt auf eine A4-Seite im Querformat.
 - **Offline:** Einmal installiert, funktioniert die App auch ohne Internet.
 

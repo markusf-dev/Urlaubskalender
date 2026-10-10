@@ -137,11 +137,22 @@
   }
 
   // Short description of what a preset does.
+  const HALF_LABEL = { am: 'vormittags', pm: 'nachmittags' };
+  const countLabel = (n) => (n === 0 ? '0 Tage (frei, kein Urlaub)' : n === 0.5 ? '½ Urlaubstag' : '1 Urlaubstag');
+
   function presetWhat(p) {
-    if (p.type === 'block') return `Urlaub ${mdLabel(p.from)} – ${mdLabel(p.to)}`;
+    if (p.type === 'block') {
+      const days = p.from === p.to ? mdLabel(p.from) : `${mdLabel(p.from)} – ${mdLabel(p.to)}`;
+      if (p.half) return `Urlaub ${days}, ${HALF_LABEL[p.half]} (zählt ½ Tag)`;
+      if (p.count === 0.5) return `Urlaub ${days} (zählt ½ Tag${p.from === p.to ? '' : ' pro Tag'})`;
+      return `Urlaub ${days}`;
+    }
     const day = p.rule ? D.CUSTOM_DAYS[p.rule]?.name || p.rule : mdLabel(p.date);
-    return `${day} zählt ${p.weight === 0 ? '0 Tage (frei, kein Urlaub)' : '½ Urlaubstag'}`;
+    return `${day} zählt ${countLabel(p.weight)}`;
   }
+
+  // Vacation days charged for one day of a fixed-vacation preset.
+  const blockUnit = (p) => (p.half ? 0.5 : p.count != null ? p.count : 1);
 
   // A date as seen by one household member (presets can differ per person).
   function dayInfo(date, memberId) {
@@ -154,8 +165,13 @@
     const weight = weightPreset ? weightPreset.weight : 1;
     const holiday = holidays(year).get(date) || null;
     const weekend = wd >= 5;
-    const free = weekend || !!holiday || weight === 0;
-    return { date, md, wd, weekend, holiday, weight, weightPreset, blockPreset, free };
+    // A preset counting a public holiday as ½ or 1 day makes it a working day
+    // for that person (e.g. employer in a state without that holiday).
+    const holidayOff = !!holiday && !(weightPreset && weightPreset.weight > 0);
+    const free = weekend || holidayOff || weight === 0;
+    // Cost when the day is off: fixed vacation can count less (half day, ½-rule).
+    const unit = blockPreset ? Math.min(weight, blockUnit(blockPreset)) : weight;
+    return { date, md, wd, weekend, holiday, weight, unit, weightPreset, blockPreset, free };
   }
 
   function manualSet(year, memberId) { return new Set(state.vacations[year]?.[memberId] || []); }
@@ -201,7 +217,7 @@
         const info = dayInfo(date, m.id);
         const manualVac = !info.free && manual[m.id].has(date);
         const presetVac = !info.free && !!info.blockPreset;
-        per[m.id] = { ...info, manualVac, presetVac, planned: manualVac || presetVac, cost: info.free ? 0 : info.weight };
+        per[m.id] = { ...info, manualVac, presetVac, planned: manualVac || presetVac, cost: info.free ? 0 : info.unit };
       }
       const base = dayInfo(date, null);
       const ps = sel.map((m) => per[m.id]);
@@ -218,7 +234,8 @@
         manualAny: ps.some((p) => p.manualVac),
         // Taking this day off together costs each person at most this much.
         cost: Math.max(0, ...ps.filter((p) => !p.free && !p.planned).map((p) => p.weight)),
-        half: ps.some((p) => !p.free && p.weight > 0 && p.weight < 1),
+        half: ps.some((p) => !p.free && p.unit > 0 && p.unit < 1),
+        halfLabel: ps.map((p) => p.presetVac && p.blockPreset.half).find(Boolean) || null,
         companyFree: !base.weekend && !base.holiday && ps.some((p) => p.weight === 0),
         jointRun: null,
       };
@@ -372,8 +389,10 @@
     $('member-legend').innerHTML = multi()
       ? state.members.map((m) => `<li><i class="sw" style="background:${m.color}"></i>${esc(m.name)}</li>`).join('')
       : '';
+    // Keep ticks made in the preset form (e.g. while editing); new people start ticked.
+    const ticked = new Map([...$('preset-members').querySelectorAll('input')].map((el) => [el.value, el.checked]));
     $('preset-members').innerHTML = '<legend>Gilt für</legend>' + state.members.map((m) =>
-      `<label><input type="checkbox" name="members" value="${m.id}" checked> ${esc(m.name)}</label>`).join('');
+      `<label><input type="checkbox" name="members" value="${m.id}" ${ticked.get(m.id) !== false ? 'checked' : ''}> ${esc(m.name)}</label>`).join('');
     $('preset-members').hidden = !multi();
   }
 
@@ -424,7 +443,10 @@
       const who = multi() ? `${m.name}: ` : '';
       if (p.weightPreset) title.push(`${who}${p.weightPreset.label || mdLabel(p.md)}${p.weight === 0 ? ' – frei' : ` zählt ${num(p.weight)} Tage`}`);
       if (p.manualVac) title.push(`${who}Urlaub`);
-      else if (p.presetVac) title.push(`${who}Urlaub (Vorlage „${p.blockPreset.label}“)`);
+      else if (p.presetVac) {
+        const extra = [p.blockPreset.half && HALF_LABEL[p.blockPreset.half], p.unit < 1 && `zählt ${num(p.unit)} Tage`].filter(Boolean);
+        title.push(`${who}Urlaub (Vorlage „${p.blockPreset.label || 'Vorlage'}“${extra.length ? `, ${extra.join(', ')}` : ''})`);
+      }
     }
     if (sugg) title.push(`Vorschlag${multi() ? ` für ${names(suggestion.members)}` : ''}`);
     if (day.jointRun) title.push(`${day.jointRun} Tage frei am Stück`);
@@ -432,7 +454,7 @@
     const companyLabel = day.companyFree
       ? state.members.map((m) => day.per[m.id]).find((p) => p.weight === 0).weightPreset.label || 'frei'
       : '';
-    const name = day.holiday || companyLabel;
+    const name = day.holiday || companyLabel || (day.halfLabel ? HALF_LABEL[day.halfLabel] : '');
     const showKw = day.wd === 0 || day.index === 0;
     const marks = multi() && onVacation.length
       ? '<span class="marks">' + state.members.map((m) =>
@@ -522,6 +544,7 @@
       return `<li>
         <input type="checkbox" data-preset-toggle="${esc(p.id)}" ${p.active ? 'checked' : ''} aria-label="aktiv">
         <div><div>${esc(p.label || what)}</div>${sub ? `<div class="sub">${esc(sub)}</div>` : ''}</div>
+        <button type="button" class="link" data-preset-edit="${esc(p.id)}" title="Bearbeiten">✎</button>
         <button type="button" class="link" data-preset-delete="${esc(p.id)}" title="Löschen">✕</button>
       </li>`;
     }).join('');
@@ -670,44 +693,104 @@
       const p = state.presets.find((x) => x.id === id);
       if (p) { p.active = e.target.checked; commit(); }
     });
+    const form = $('preset-form');
+    const details = form.closest('details');
+    let editingId = null;
+    form.rule.innerHTML = Object.entries(D.CUSTOM_DAYS)
+      .map(([key, d]) => `<option value="${key}">${esc(d.name)}</option>`).join('');
+
+    const syncFields = () => {
+      form.querySelectorAll('[data-for]').forEach((el) => { el.hidden = el.dataset.for !== form.type.value; });
+      const half = form.extent.value !== 'full';
+      if (half) form.blockCount.value = '0.5';
+      form.blockCount.disabled = half;
+    };
+    const setMembers = (ids) => form.querySelectorAll('input[name="members"]').forEach((el) => {
+      el.checked = !ids || !ids.length || ids.includes(el.value);
+    });
+    const setMode = (editing) => {
+      $('preset-form-title').hidden = !editing;
+      $('preset-cancel').hidden = !editing;
+      form.querySelector('[type="submit"]').textContent = editing ? 'Speichern' : 'Hinzufügen';
+    };
+    const resetForm = () => {
+      editingId = null;
+      form.reset();
+      setMembers(null);
+      setMode(false);
+      syncFields();
+    };
+
+    function editPreset(p) {
+      resetForm();
+      editingId = p.id;
+      if (p.type === 'block') {
+        form.type.value = 'block';
+        form.from.value = mdLabel(p.from);
+        form.to.value = p.to === p.from ? '' : mdLabel(p.to);
+        form.extent.value = p.half || 'full';
+        form.blockCount.value = String(blockUnit(p));
+      } else if (p.rule) {
+        form.type.value = 'custom';
+        form.rule.value = p.rule;
+        form.customWeight.value = String(p.weight);
+      } else {
+        form.type.value = 'weight';
+        form.date.value = mdLabel(p.date);
+        form.weight.value = String(p.weight);
+      }
+      form.label.value = p.label || '';
+      setMembers(p.members);
+      setMode(true);
+      syncFields();
+      details.open = true;
+      form.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+    }
+
     $('presets').addEventListener('click', (e) => {
+      const editId = e.target.closest('[data-preset-edit]')?.dataset.presetEdit;
+      if (editId) { editPreset(state.presets.find((x) => x.id === editId)); return; }
       const id = e.target.closest('[data-preset-delete]')?.dataset.presetDelete;
       if (!id) return;
+      if (id === editingId) resetForm();
       state.presets = state.presets.filter((x) => x.id !== id);
       commit();
     });
 
-    const form = $('preset-form');
-    form.rule.innerHTML = Object.entries(D.CUSTOM_DAYS)
-      .map(([key, d]) => `<option value="${key}">${esc(d.name)}</option>`).join('');
-    form.type.addEventListener('change', () => {
-      form.querySelectorAll('[data-for]').forEach((el) => { el.hidden = el.dataset.for !== form.type.value; });
-    });
+    form.type.addEventListener('change', syncFields);
+    form.extent.addEventListener('change', syncFields);
+    $('preset-cancel').addEventListener('click', resetForm);
+
     form.addEventListener('submit', (e) => {
       e.preventDefault();
-      const id = `p-${Date.now()}`;
-      const label = form.label.value.trim();
+      let label = form.label.value.trim();
       const checked = [...form.querySelectorAll('input[name="members"]:checked')].map((el) => el.value);
       if (!checked.length) { toast('Bitte mindestens eine Person auswählen.'); return; }
       // An empty list means "everybody", which also covers people added later.
       const members = checked.length === state.members.length ? [] : checked;
+      let preset;
       if (form.type.value === 'block') {
-        const from = parseMD(form.from.value), to = parseMD(form.to.value || form.from.value);
+        const from = parseMD(form.from.value), to = form.to.value.trim() ? parseMD(form.to.value) : from;
         if (!from || !to) { toast('Bitte Datum als TT.MM. angeben, z. B. 24.12.'); return; }
-        state.presets.push({ id, type: 'block', from, to, label, members, active: true });
+        const half = form.extent.value === 'full' ? null : form.extent.value;
+        preset = { type: 'block', from, to, count: half ? 0.5 : +form.blockCount.value, label, members };
+        if (half) preset.half = half;
       } else if (form.type.value === 'custom') {
         const rule = form.rule.value;
-        state.presets.push({
-          id, type: 'weight', rule, weight: +form.customWeight.value,
-          label: label || D.CUSTOM_DAYS[rule].name, members, active: true,
-        });
+        // Default label follows the chosen day, also when the day is changed while editing.
+        if (!label || Object.values(D.CUSTOM_DAYS).some((d) => d.name === label)) label = D.CUSTOM_DAYS[rule].name;
+        preset = { type: 'weight', rule, weight: +form.customWeight.value, label, members };
       } else {
         const date = parseMD(form.date.value);
         if (!date) { toast('Bitte Datum als TT.MM. angeben, z. B. 24.12.'); return; }
-        state.presets.push({ id, type: 'weight', date, weight: +form.weight.value, label, members, active: true });
+        preset = { type: 'weight', date, weight: +form.weight.value, label, members };
       }
-      form.reset();
-      form.type.dispatchEvent(new Event('change'));
+      const index = state.presets.findIndex((x) => x.id === editingId);
+      if (index >= 0) state.presets[index] = { ...preset, id: editingId, active: state.presets[index].active };
+      else state.presets.push({ ...preset, id: `p-${Date.now()}`, active: true });
+      toast(index >= 0 ? 'Vorlage gespeichert.' : 'Vorlage hinzugefügt.');
+      resetForm();
+      details.open = false;
       commit();
     });
 
