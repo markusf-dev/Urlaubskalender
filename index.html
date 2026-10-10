@@ -26,7 +26,6 @@
           <select id="region"></select>
         </label>
         <p class="muted small" id="school-source"></p>
-        <button type="button" class="storage-line" id="storage-line" title="Datenablage ändern"></button>
       </section>
 
       <section class="card">
@@ -118,34 +117,6 @@
           </form>
         </details>
       </section>
-
-      <section class="card" id="settings-card">
-        <h2>Einstellungen</h2>
-
-        <h3>Datenablage</h3>
-        <p id="storage-status"></p>
-        <div class="btn-row" id="storage-actions"></div>
-        <p class="muted small" id="storage-hint"></p>
-
-        <h3>Sicherung</h3>
-        <p class="muted small">Den kompletten Plan als Datei sichern oder auf ein anderes Gerät übertragen.</p>
-        <div class="btn-row">
-          <button type="button" id="export">Exportieren</button>
-          <label class="button">Importieren …<input type="file" id="import" accept=".json,application/json" hidden></label>
-        </div>
-
-        <details>
-          <summary>Mit dem Haushalt teilen</summary>
-          <ol class="small steps">
-            <li>Einen Ordner in iCloud Drive, Dropbox oder OneDrive mit allen im Haushalt teilen.</li>
-            <li>Alle wählen hier in Chrome oder Edge „Ordner wählen …“ und genau diesen Ordner.</li>
-            <li>Änderungen erscheinen bei den anderen nach wenigen Sekunden, sobald der Cloud-Dienst abgeglichen hat.</li>
-          </ol>
-          <p class="muted small">Jeder Haushalt hat so seinen eigenen Plan in seinem eigenen Ordner – Konten oder ein Server sind nicht nötig.
-            Auf dem iPhone und in Safari bitte per Export/Import abgleichen.
-            Ändern zwei Personen fast gleichzeitig etwas, gilt der zuerst gespeicherte Stand; die andere Person bekommt einen Hinweis.</p>
-        </details>
-      </section>
     </aside>
 
     <main class="cal-wrap">
@@ -157,7 +128,6 @@
           <p id="subtitle"></p>
         </div>
         <div class="head-actions no-print">
-          <button type="button" class="pill" id="storage-pill" hidden></button>
           <button type="button" id="print">Drucken</button>
         </div>
       </header>
@@ -183,7 +153,6 @@
   <script src="js/dates.js"></script>
   <script src="js/school.js"></script>
   <script src="js/optimizer.js"></script>
-  <script src="js/storage.js"></script>
   <script src="js/app.js"></script>
 </body>
 </html>
