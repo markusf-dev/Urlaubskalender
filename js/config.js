@@ -4,5 +4,5 @@
 window.KalConfig = window.KalConfig || {
   syncUrl: location.hostname === 'localhost'
     ? 'http://localhost:8787'
-    : 'https://urlaubskalender-sync.markus-e60.workers.dev',
+    : 'https://urlaubskalender-sync.mstuff.workers.dev',
 };
