@@ -31,6 +31,7 @@
       budgets: {}, // year -> memberId -> days
       vacations: {}, // year -> memberId -> sorted ISO dates of manually booked workdays
       halfDays: {}, // year -> memberId -> { date: 'am' | 'pm' } for booked half days
+      titles: [], // { id, from, to, text, members } shown vertically over booked vacation
       presets: DEFAULT_PRESETS,
       opt: { style: 'balanced', maxBlocks: 0, school: 'any' },
     };
@@ -50,7 +51,7 @@
 
   // Everything that belongs to the household's plan and is shared via the
   // household link. Year, ticked people and the collapsed sidebar stay per device.
-  const SHARED_KEYS = ['region', 'members', 'budgets', 'vacations', 'halfDays', 'presets', 'opt'];
+  const SHARED_KEYS = ['region', 'members', 'budgets', 'vacations', 'halfDays', 'titles', 'presets', 'opt'];
 
   function sharedData() {
     const data = { app: 'urlaubskalender', version: 1 };
@@ -301,8 +302,66 @@
 
   function commit({ keepSuggestion = false } = {}) {
     if (!keepSuggestion) suggestion = null;
+    dropOrphanTitles();
     save();
     render();
+  }
+
+  // ---------- vacation titles ----------
+
+  // A title stays while at least one of its people has vacation booked in its range.
+  function titleVisible(t) {
+    for (let d = t.from; d <= t.to; d = D.addDays(d, 1)) {
+      if (t.members.some((id) => manualSet(+d.slice(0, 4), id).has(d))) return true;
+    }
+    return false;
+  }
+
+  function dropOrphanTitles() {
+    if (state.titles.some((t) => !titleVisible(t))) state.titles = state.titles.filter(titleVisible);
+  }
+
+  // Titles to draw in the shown year: vacation titles plus named fixed-vacation presets.
+  function titleRanges(year) {
+    const list = state.titles.map((t) => ({ from: t.from, to: t.to, text: t.text }));
+    for (const p of state.presets) {
+      if (p.type !== 'block' || !p.active || !p.label) continue;
+      if (!state.members.some((m) => appliesTo(p, m.id))) continue;
+      const from = `${year}-${p.from}`, to = p.from <= p.to ? `${year}-${p.to}` : `${year + 1}-${p.to}`;
+      list.push({ from, to, text: p.label });
+      if (p.from > p.to) list.push({ from: `${year - 1}-${p.from}`, to: `${year}-${p.to}`, text: p.label });
+    }
+    const start = `${year}-01-01`, end = `${year}-12-31`;
+    return list
+      .filter((t) => t.to >= start && t.from <= end)
+      .map((t) => ({ ...t, from: t.from < start ? start : t.from, to: t.to > end ? end : t.to }));
+  }
+
+  // Draws each title rotated in the middle of the month column over its days.
+  // Positions are measured, so it runs again on resize and for printing.
+  function drawTitles() {
+    const cal = $('calendar');
+    cal.querySelectorAll('.vtitle').forEach((el) => el.remove());
+    cal.querySelectorAll('td.has-title').forEach((td) => td.classList.remove('has-title'));
+    for (const t of titleRanges(state.year)) {
+      let segStart = t.from;
+      for (let d = t.from; d <= t.to; d = D.addDays(d, 1)) {
+        const next = D.addDays(d, 1);
+        if (d !== t.to && next.slice(5, 7) === d.slice(5, 7)) continue; // segment ends at month end
+        const first = cal.querySelector(`td[data-date="${segStart}"]`);
+        const last = cal.querySelector(`td[data-date="${d}"]`);
+        if (first && last) {
+          const height = last.getBoundingClientRect().bottom - first.getBoundingClientRect().top;
+          const el = document.createElement('span');
+          el.className = 'vtitle';
+          el.textContent = t.text;
+          el.style.height = `${height}px`;
+          first.classList.add('has-title');
+          first.appendChild(el);
+        }
+        segStart = next;
+      }
+    }
   }
 
   // Adds or removes every bookable workday between a and b (may span years)
@@ -447,6 +506,7 @@
       html += '</tr>';
     }
     $('calendar').innerHTML = html + '</tbody>';
+    drawTitles();
   }
 
   function cellHtml(day, sugg, inSuggRun) {
@@ -479,6 +539,7 @@
       }
     }
     if (sugg) title.push(`Vorschlag${multi() ? ` für ${names(suggestion.members)}` : ''}`);
+    for (const t of titleRanges(state.year)) if (day.date >= t.from && day.date <= t.to) title.push(`„${t.text}“`);
     if (day.jointRun) title.push(`${daysLabel(day.jointRun)} frei am Stück`);
 
     const companyLabel = day.companyFree
@@ -681,10 +742,18 @@
       const a = $('range-from').value, b = $('range-to').value || a;
       if (!a) { toast('Bitte ein Startdatum wählen.'); return; }
       const half = $('range-extent').value === 'full' ? null : $('range-extent').value;
+      const text = $('range-title').value.trim();
+      const [from, to] = a <= b ? [a, b] : [b, a];
       if (!setRange(a, b, true, state.selected, half)) toast('Im Zeitraum gibt es keine Arbeitstage, die noch frei sind.');
+      if (text) {
+        // A new title for the same days replaces the old one.
+        state.titles = state.titles.filter((t) => !(t.from === from && t.to === to));
+        state.titles.push({ id: `t-${Date.now()}`, from, to, text, members: [...state.selected] });
+      }
       $('range-from').value = '';
       $('range-to').value = '';
       $('range-extent').value = 'full';
+      $('range-title').value = '';
       commit();
     });
 
@@ -853,6 +922,14 @@
     $('print').addEventListener('click', () => window.print());
     bindSidebarToggle();
     bindCalendar();
+
+    // Title positions depend on the rendered row heights.
+    let resizeTimer;
+    window.addEventListener('resize', () => { clearTimeout(resizeTimer); resizeTimer = setTimeout(drawTitles, 100); });
+    window.addEventListener('beforeprint', drawTitles);
+    window.addEventListener('afterprint', drawTitles);
+    window.matchMedia('print').addEventListener?.('change', drawTitles);
+    document.fonts?.ready.then(drawTitles);
   }
 
   // Remembered per browser; purely a view preference, so it lives outside `state`.
