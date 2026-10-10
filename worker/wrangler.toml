@@ -10,8 +10,8 @@ RETENTION_DAYS = "730"
 [[d1_databases]]
 binding = "DB"
 database_name = "urlaubskalender"
-# Filled in after `npx wrangler d1 create urlaubskalender` (see worker/README.md).
-database_id = "00000000-0000-0000-0000-000000000000"
+# Created with `npx wrangler d1 create urlaubskalender --location weur`.
+database_id = "ac5349df-a16c-423c-a1db-f24ce6df6389"
 
 [triggers]
 crons = ["17 3 * * *"]
