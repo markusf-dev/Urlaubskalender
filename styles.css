@@ -111,17 +111,14 @@ h3 { font-size: 12px; margin: 14px 0 0; color: var(--muted); font-weight: 600; }
 .members .name { flex: 1; min-width: 0; border: 1px solid transparent; border-radius: 6px; padding: 3px 5px; }
 .members .name:hover, .members .name:focus { border-color: var(--line); }
 .members .mbudget { width: 62px; border: 1px solid var(--line); border-radius: 6px; padding: 3px 5px; }
-.members .sub { flex-basis: 100%; padding-left: 40px; }
+.members .sub { flex-basis: 100%; padding-left: 18px; }
 .members .sub.warn { color: #b42318; }
 #member-add { margin-top: 8px; width: 100%; }
-.who { border: 0; padding: 0; margin: 0 0 8px; }
-.who[hidden] { display: none; }
-.who legend { padding: 0; margin-bottom: 2px; }
-.who label { display: inline-flex; align-items: center; gap: 6px; margin: 2px 0; color: var(--text); font-size: 13px; }
-.field.who input { width: auto; margin: 0; }
+.field[hidden] { display: none; }
 .names { color: var(--muted); font-size: 12px; }
 
 .chips { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 4px; }
+.field .chips { margin-top: 2px; }
 .chip {
   display: inline-flex;
   align-items: center;

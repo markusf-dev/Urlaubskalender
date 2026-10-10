@@ -30,6 +30,7 @@
       selected: ['m1'],
       budgets: {}, // year -> memberId -> days
       vacations: {}, // year -> memberId -> sorted ISO dates of manually booked workdays
+      halfDays: {}, // year -> memberId -> { date: 'am' | 'pm' } for booked half days
       presets: DEFAULT_PRESETS,
       opt: { style: 'balanced', maxBlocks: 0, school: 'any' },
     };
@@ -49,7 +50,7 @@
 
   // Everything that belongs to the household's plan and is shared via the
   // household link. Year, ticked people and the collapsed sidebar stay per device.
-  const SHARED_KEYS = ['region', 'members', 'budgets', 'vacations', 'presets', 'opt'];
+  const SHARED_KEYS = ['region', 'members', 'budgets', 'vacations', 'halfDays', 'presets', 'opt'];
 
   function sharedData() {
     const data = { app: 'urlaubskalender', version: 1 };
@@ -174,6 +175,23 @@
     return { date, md, wd, weekend, holiday, weight, unit, weightPreset, blockPreset, free };
   }
 
+  // Toggle tags for choosing people (same look as the tags on vacation entries).
+  function personTags(ids, attr) {
+    return state.members.map((m) => {
+      const on = ids.includes(m.id);
+      return `<button type="button" class="chip${on ? ' on' : ''}" style="--c:${m.color}" ${attr}="${m.id}" aria-pressed="${on}">${esc(m.name)}</button>`;
+    }).join('');
+  }
+
+  function halfMap(year, memberId) { return { ...(state.halfDays[year]?.[memberId] || {}) }; }
+
+  function storeHalf(year, memberId, map) {
+    const byMember = state.halfDays[year] || (state.halfDays[year] = {});
+    if (Object.keys(map).length) byMember[memberId] = map;
+    else delete byMember[memberId];
+    if (!Object.keys(byMember).length) delete state.halfDays[year];
+  }
+
   function manualSet(year, memberId) { return new Set(state.vacations[year]?.[memberId] || []); }
 
   function storeManual(year, memberId, set) {
@@ -207,6 +225,7 @@
       for (let d = h.start; d <= h.end; d = D.addDays(d, 1)) schoolByDate.set(d, h.name);
     }
     const manual = Object.fromEntries(state.members.map((m) => [m.id, manualSet(y, m.id)]));
+    const halves = Object.fromEntries(state.members.map((m) => [m.id, halfMap(y, m.id)]));
 
     const days = [];
     const byDate = new Map();
@@ -217,7 +236,9 @@
         const info = dayInfo(date, m.id);
         const manualVac = !info.free && manual[m.id].has(date);
         const presetVac = !info.free && !!info.blockPreset;
-        per[m.id] = { ...info, manualVac, presetVac, planned: manualVac || presetVac, cost: info.free ? 0 : info.unit };
+        const halfManual = manualVac ? halves[m.id][date] || null : null;
+        const unit = halfManual ? Math.min(info.unit, 0.5) : info.unit;
+        per[m.id] = { ...info, unit, manualVac, presetVac, halfManual, planned: manualVac || presetVac, cost: info.free ? 0 : unit };
       }
       const base = dayInfo(date, null);
       const ps = sel.map((m) => per[m.id]);
@@ -235,7 +256,7 @@
         // Taking this day off together costs each person at most this much.
         cost: Math.max(0, ...ps.filter((p) => !p.free && !p.planned).map((p) => p.weight)),
         half: ps.some((p) => !p.free && p.unit > 0 && p.unit < 1),
-        halfLabel: ps.map((p) => p.presetVac && p.blockPreset.half).find(Boolean) || null,
+        halfLabel: ps.map((p) => p.halfManual || (p.presetVac && p.blockPreset.half)).find(Boolean) || null,
         companyFree: !base.weekend && !base.holiday && ps.some((p) => p.weight === 0),
         jointRun: null,
       };
@@ -286,25 +307,33 @@
 
   // Adds or removes every bookable workday between a and b (may span years)
   // for the given members. Returns the number of changed person-days.
-  function setRange(a, b, add, memberIds = state.selected) {
+  // `half` ('am' | 'pm') books half days; adding without it books full days.
+  function setRange(a, b, add, memberIds = state.selected, half = null) {
     if (a > b) [a, b] = [b, a];
     let changed = 0;
     for (const id of memberIds) {
       const sets = new Map();
+      const halves = new Map();
       for (let d = a; d <= b; d = D.addDays(d, 1)) {
         const y = +d.slice(0, 4);
-        if (!sets.has(y)) sets.set(y, manualSet(y, id));
+        if (!sets.has(y)) { sets.set(y, manualSet(y, id)); halves.set(y, halfMap(y, id)); }
         const set = sets.get(y);
+        const map = halves.get(y);
         if (add) {
           const info = dayInfo(d, id);
-          if (info.free || info.blockPreset || set.has(d)) continue;
+          if (info.free || info.blockPreset) continue;
+          if (set.has(d) && (map[d] || null) === half) continue;
           set.add(d);
+          if (half) map[d] = half;
+          else delete map[d];
           changed++;
         } else if (set.delete(d)) {
+          delete map[d];
           changed++;
         }
       }
       sets.forEach((set, y) => storeManual(y, id, set));
+      halves.forEach((map, y) => storeHalf(y, id, map));
     }
     return changed;
   }
@@ -328,12 +357,14 @@
     commit();
   }
 
-  function rangeCost(a, b, memberId) {
+  function rangeCost(a, b, memberId, half = null) {
     if (a > b) [a, b] = [b, a];
     let cost = 0;
     for (let d = a; d <= b; d = D.addDays(d, 1)) {
       const info = dayInfo(d, memberId);
-      if (!info.free && !info.blockPreset && !manualSet(+d.slice(0, 4), memberId).has(d)) cost += info.weight;
+      if (!info.free && !info.blockPreset && !manualSet(+d.slice(0, 4), memberId).has(d)) {
+        cost += half ? Math.min(info.weight, 0.5) : info.weight;
+      }
     }
     return cost;
   }
@@ -353,7 +384,8 @@
     $('sug-style').value = state.opt.style;
     $('sug-blocks').value = String(state.opt.maxBlocks);
     $('sug-school').value = state.opt.school;
-    $('for-whom').textContent = multi() ? `für ${names(state.selected)}` : '';
+    $('entry-who').hidden = !multi();
+    $('entry-members').innerHTML = personTags(state.selected, 'data-entry-member');
     if (!suggestion) $('sug-budget').value = Math.max(0, jointRest());
 
     renderMembers();
@@ -377,23 +409,21 @@
     $('members').innerHTML = state.members.map((m) => {
       const s = model.stats[m.id];
       return `<li>
-        <input type="checkbox" data-select="${m.id}" ${state.selected.includes(m.id) ? 'checked' : ''} aria-label="${esc(m.name)} auswählen">
         <i class="dot" style="background:${m.color}"></i>
         <input class="name" data-name="${m.id}" value="${esc(m.name)}" aria-label="Name">
         <input class="mbudget" type="number" min="0" step="0.5" data-budget="${m.id}" value="${budget(m.id)}" title="Urlaubsanspruch ${state.year}">
         ${multi() ? `<button type="button" class="link" data-member-delete="${m.id}" title="Person entfernen">✕</button>` : ''}
-        <div class="sub${s.rest < 0 ? ' warn' : ''}">${num(s.used)} verplant · ${num(s.rest)} übrig · ${s.offDays} Tage frei am Stück</div>
+        <div class="sub${s.rest < 0 ? ' warn' : ''}">${num(s.used)} verplant · ${num(s.rest)} übrig · ${daysLabel(s.offDays)} frei am Stück</div>
       </li>`;
     }).join('');
 
     $('member-legend').innerHTML = multi()
       ? state.members.map((m) => `<li><i class="sw" style="background:${m.color}"></i>${esc(m.name)}</li>`).join('')
       : '';
-    // Keep ticks made in the preset form (e.g. while editing); new people start ticked.
-    const ticked = new Map([...$('preset-members').querySelectorAll('input')].map((el) => [el.value, el.checked]));
-    $('preset-members').innerHTML = '<legend>Gilt für</legend>' + state.members.map((m) =>
-      `<label><input type="checkbox" name="members" value="${m.id}" ${ticked.get(m.id) !== false ? 'checked' : ''}> ${esc(m.name)}</label>`).join('');
-    $('preset-members').hidden = !multi();
+    // Keep the choice made in the preset form (e.g. while editing); new people start chosen.
+    const chosen = new Map([...$('preset-members').querySelectorAll('.chip')].map((el) => [el.dataset.presetMember, el.classList.contains('on')]));
+    $('preset-members').innerHTML = personTags(state.members.filter((m) => chosen.get(m.id) !== false).map((m) => m.id), 'data-preset-member');
+    $('preset-who').hidden = !multi();
   }
 
   function renderCalendar() {
@@ -442,14 +472,14 @@
       const p = day.per[m.id];
       const who = multi() ? `${m.name}: ` : '';
       if (p.weightPreset) title.push(`${who}${p.weightPreset.label || mdLabel(p.md)}${p.weight === 0 ? ' – frei' : ` zählt ${num(p.weight)} Tage`}`);
-      if (p.manualVac) title.push(`${who}Urlaub`);
+      if (p.manualVac) title.push(`${who}Urlaub${p.halfManual ? `, ${HALF_LABEL[p.halfManual]} (½ Tag)` : ''}`);
       else if (p.presetVac) {
         const extra = [p.blockPreset.half && HALF_LABEL[p.blockPreset.half], p.unit < 1 && `zählt ${num(p.unit)} Tage`].filter(Boolean);
         title.push(`${who}Urlaub (Vorlage „${p.blockPreset.label || 'Vorlage'}“${extra.length ? `, ${extra.join(', ')}` : ''})`);
       }
     }
     if (sugg) title.push(`Vorschlag${multi() ? ` für ${names(suggestion.members)}` : ''}`);
-    if (day.jointRun) title.push(`${day.jointRun} Tage frei am Stück`);
+    if (day.jointRun) title.push(`${daysLabel(day.jointRun)} frei am Stück`);
 
     const companyLabel = day.companyFree
       ? state.members.map((m) => day.per[m.id]).find((p) => p.weight === 0).weightPreset.label || 'frei'
@@ -484,7 +514,7 @@
       <li>
         <div>
           <div>${range(b.start, b.end)}</div>
-          <div class="sub">${b.length} Tage frei · ${daysLabel(b.cost)} Urlaub${b.members.length > 1 ? ' je Person' : ''}
+          <div class="sub">${daysLabel(b.length)} frei · ${daysLabel(b.cost)} Urlaub${b.members.length > 1 ? ' je Person' : ''}
             ${b.presets.map((p) => `<span class="tag">${esc(p.label || 'Vorlage')}</span>`).join(' ')}</div>
           ${multi() ? chips(b, i) : ''}
         </div>
@@ -503,7 +533,7 @@
     if (!blocks.length) {
       html += '<p class="sug-summary">Mit diesen Einstellungen passt kein Urlaubsblock ins Budget.</p>';
     } else {
-      html += `<div class="sug-summary"><b>${daysLabel(cost)} Urlaub → ${gain} Tage frei</b>
+      html += `<div class="sug-summary"><b>${daysLabel(cost)} Urlaub → ${daysLabel(gain)} frei</b>
         ${multi() ? `<div class="names">gemeinsam für ${esc(names(suggestion.members))}, höchstens ${daysLabel(cost)} je Person</div>` : ''}
         <div class="sug-actions">
           <button type="button" class="primary" data-sug-apply="all">Alle übernehmen</button>
@@ -522,7 +552,7 @@
     const takeFrom = b.taken[0], takeTo = b.taken[b.taken.length - 1];
     return `<li>
       <div>
-        <div>${range(b.start, b.end)} <span class="ratio">${b.gain} Tage frei</span></div>
+        <div>${range(b.start, b.end)} <span class="ratio">${daysLabel(b.gain)} frei</span></div>
         <div class="sub">${daysLabel(b.cost)} Urlaub: ${range(takeFrom, takeTo)}</div>
       </div>
       <button type="button" ${attr}>Übernehmen</button>
@@ -556,7 +586,8 @@
       $('range-preview').textContent = 'Oder im Kalender klicken bzw. mit der Maus ziehen.';
       return;
     }
-    const costs = selected().map((m) => ({ m, cost: rangeCost(a, b, m.id) }));
+    const half = $('range-extent').value === 'full' ? null : $('range-extent').value;
+    const costs = selected().map((m) => ({ m, cost: rangeCost(a, b, m.id, half) }));
     const same = costs.every((c) => c.cost === costs[0].cost);
     $('range-preview').textContent = same
       ? `Kostet ${daysLabel(costs[0].cost)} Urlaub${costs.length > 1 ? ' je Person' : ''}.`
@@ -632,12 +663,28 @@
       updateRangePreview();
     });
     $('range-to').addEventListener('change', updateRangePreview);
+    $('range-extent').addEventListener('change', updateRangePreview);
+
+    // Who new vacation (form, calendar clicks, suggestions) is for.
+    $('entry-members').addEventListener('click', (e) => {
+      const id = e.target.closest('[data-entry-member]')?.dataset.entryMember;
+      if (!id) return;
+      if (state.selected.includes(id)) {
+        if (state.selected.length === 1) { toast('Mindestens eine Person muss ausgewählt sein.'); return; }
+        state.selected = state.selected.filter((x) => x !== id);
+      } else {
+        state.selected = state.members.map((m) => m.id).filter((x) => x === id || state.selected.includes(x));
+      }
+      commit();
+    });
     $('range-add').addEventListener('click', () => {
       const a = $('range-from').value, b = $('range-to').value || a;
       if (!a) { toast('Bitte ein Startdatum wählen.'); return; }
-      if (!setRange(a, b, true)) toast('Im Zeitraum gibt es keine Arbeitstage, die noch frei sind.');
+      const half = $('range-extent').value === 'full' ? null : $('range-extent').value;
+      if (!setRange(a, b, true, state.selected, half)) toast('Im Zeitraum gibt es keine Arbeitstage, die noch frei sind.');
       $('range-from').value = '';
       $('range-to').value = '';
+      $('range-extent').value = 'full';
       commit();
     });
 
@@ -705,8 +752,17 @@
       if (half) form.blockCount.value = '0.5';
       form.blockCount.disabled = half;
     };
-    const setMembers = (ids) => form.querySelectorAll('input[name="members"]').forEach((el) => {
-      el.checked = !ids || !ids.length || ids.includes(el.value);
+    const setMembers = (ids) => form.querySelectorAll('[data-preset-member]').forEach((el) => {
+      const on = !ids || !ids.length || ids.includes(el.dataset.presetMember);
+      el.classList.toggle('on', on);
+      el.setAttribute('aria-pressed', String(on));
+    });
+    $('preset-members').addEventListener('click', (e) => {
+      const chip = e.target.closest('[data-preset-member]');
+      if (!chip) return;
+      const on = !chip.classList.contains('on');
+      chip.classList.toggle('on', on);
+      chip.setAttribute('aria-pressed', String(on));
     });
     const setMode = (editing) => {
       $('preset-form-title').hidden = !editing;
@@ -764,7 +820,7 @@
     form.addEventListener('submit', (e) => {
       e.preventDefault();
       let label = form.label.value.trim();
-      const checked = [...form.querySelectorAll('input[name="members"]:checked')].map((el) => el.value);
+      const checked = [...form.querySelectorAll('[data-preset-member].on')].map((el) => el.dataset.presetMember);
       if (!checked.length) { toast('Bitte mindestens eine Person auswählen.'); return; }
       // An empty list means "everybody", which also covers people added later.
       const members = checked.length === state.members.length ? [] : checked;
@@ -823,13 +879,7 @@
     const list = $('members');
     list.addEventListener('change', (e) => {
       const t = e.target;
-      if (t.dataset.select) {
-        const id = t.dataset.select;
-        if (t.checked) state.selected = state.members.map((m) => m.id).filter((x) => x === id || state.selected.includes(x));
-        else if (state.selected.length > 1) state.selected = state.selected.filter((x) => x !== id);
-        else { t.checked = true; toast('Mindestens eine Person muss ausgewählt sein.'); return; }
-        commit();
-      } else if (t.dataset.name) {
+      if (t.dataset.name) {
         const name = t.value.trim() || 'Person';
         // Re-rendering removes the focused input, which can fire another change.
         if (member(t.dataset.name).name === name) return;
@@ -848,6 +898,7 @@
       state.selected = state.selected.filter((x) => x !== id);
       if (!state.selected.length) state.selected = [state.members[0].id];
       for (const y of Object.keys(state.vacations)) storeManual(y, id, new Set());
+      for (const y of Object.keys(state.halfDays)) storeHalf(y, id, {});
       for (const y of Object.keys(state.budgets)) delete state.budgets[y][id];
       // Drop presets that only applied to this person (an empty list would mean "everybody").
       state.presets = state.presets

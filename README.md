@@ -9,8 +9,8 @@ Die App läuft im Browser. Es gibt kein Konto und keine Kosten. Dein Plan bleibt
 ## Was die App kann
 
 - **Jahresübersicht:** Gesetzliche Feiertage für alle 16 Bundesländer und die Schulferien des gewählten Bundeslands. Wochenenden und Feiertage sind rot, Schulferien grün markiert.
-- **Mehrere Personen:** Lege alle im Haushalt an, jede Person mit eigenem Urlaubsanspruch. Bei jedem Eintrag wählst du, für wen er gilt: für eine Person, mehrere oder alle. Im Kalender zeigt ein farbiger Balken, wer an welchem Tag frei hat.
-- **Urlaub eintragen:** Wähle Von und Bis, oder klicke direkt in den Kalender. Mit gedrückter Maustaste markierst du mehrere Tage. Ein erneuter Klick auf einen Urlaubstag entfernt ihn wieder. Die App zählt die verbrauchten und übrigen Urlaubstage pro Person mit.
+- **Mehrere Personen:** Lege alle im Haushalt an, jede Person mit eigenem Urlaubsanspruch. In **„Urlaub eintragen“** wählst du über die Namens-Tags, für wen ein Urlaub gilt: für eine Person, mehrere oder alle. Das gilt auch für Klicks im Kalender und für Vorschläge. Auch nachträglich lassen sich die Personen an jedem Eintrag über die Tags ändern. Im Kalender zeigt ein farbiger Balken, wer an welchem Tag frei hat.
+- **Urlaub eintragen:** Wähle Von und Bis und den Umfang: ganzer Tag, ½ Tag vormittags oder ½ Tag nachmittags. Oder klicke direkt in den Kalender; mit gedrückter Maustaste markierst du mehrere Tage. Ein erneuter Klick auf einen Urlaubstag entfernt ihn wieder. Die App zählt die verbrauchten und übrigen Urlaubstage pro Person mit.
 - **Urlaub vorschlagen:** Gib an, wie viele Tage du verplanen möchtest. Die App verteilt sie so, dass zusammen mit Wochenenden und Feiertagen möglichst viele freie Tage am Stück entstehen. Du kannst wählen:
   - den Stil: lange Wochenenden, ausgewogen oder wenige lange Urlaube
   - die maximale Anzahl der Urlaubsblöcke
@@ -52,9 +52,10 @@ Neue Versionen lädt die App beim Start im Hintergrund. Sie sind ab dem nächste
 
 1. Links oben das **Jahr** und dein **Bundesland** wählen.
 2. Unter **Haushalt** den Namen anpassen und den Urlaubsanspruch eintragen. Mit **„+ Person hinzufügen“** kommen weitere Personen dazu.
-3. Unter **Vorlagen** prüfen, ob die Voreinstellungen passen. Ab Werk gelten Heiligabend und Silvester als halbe Tage, und vom 24.12. bis 31.12. ist Urlaub eingetragen. Unpassende Vorlagen kannst du abhaken oder löschen.
-4. Feste Urlaube eintragen, z. B. den Sommerurlaub.
-5. Unter **Urlaub vorschlagen** die restlichen Tage verteilen lassen.
+3. Unter **Urlaub eintragen** über die Namens-Tags wählen, für wen du gerade planst.
+4. Unter **Vorlagen** prüfen, ob die Voreinstellungen passen. Ab Werk gelten Heiligabend und Silvester als halbe Tage, und vom 24.12. bis 31.12. ist Urlaub eingetragen. Unpassende Vorlagen kannst du abhaken oder löschen.
+5. Feste Urlaube eintragen, z. B. den Sommerurlaub.
+6. Unter **Urlaub vorschlagen** die restlichen Tage verteilen lassen.
 
 Mit **«** oben links klappst du die Seitenleiste ein, wenn du nur den Kalender sehen willst.
 

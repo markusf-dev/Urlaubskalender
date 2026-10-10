@@ -30,7 +30,7 @@
 
       <section class="card">
         <h2>Haushalt</h2>
-        <p class="muted small">Einträge und Vorschläge gelten für die angehakten Personen. Zahl = Urlaubsanspruch im Jahr.</p>
+        <p class="muted small">Zahl = Urlaubsanspruch im Jahr.</p>
         <ul class="list members" id="members"></ul>
         <button type="button" id="member-add">+ Person hinzufügen</button>
 
@@ -59,11 +59,21 @@
       </section>
 
       <section class="card">
-        <h2>Urlaub eintragen <span class="muted small" id="for-whom"></span></h2>
+        <h2>Urlaub eintragen</h2>
+        <div class="field" id="entry-who" hidden>Für
+          <div class="chips" id="entry-members"></div>
+        </div>
         <div class="row">
           <label class="field">Von <input type="date" id="range-from"></label>
           <label class="field">Bis <input type="date" id="range-to"></label>
         </div>
+        <label class="field">Umfang
+          <select id="range-extent">
+            <option value="full">ganzer Tag</option>
+            <option value="am">½ Tag vormittags</option>
+            <option value="pm">½ Tag nachmittags</option>
+          </select>
+        </label>
         <p class="muted small" id="range-preview">Oder im Kalender klicken bzw. mit der Maus ziehen.</p>
         <button type="button" class="primary" id="range-add">Eintragen</button>
         <ul class="list" id="blocks"></ul>
@@ -156,7 +166,9 @@
             </div>
             <p class="muted small" data-for="weight" hidden>„1 Urlaubstag“ macht einen gesetzlichen Feiertag zum Arbeitstag, z. B. wenn der Arbeitgeber in einem anderen Bundesland sitzt.</p>
             <label class="field">Bezeichnung (optional) <input name="label" placeholder="z. B. Heiligabend"></label>
-            <fieldset class="field who" id="preset-members"><legend>Gilt für</legend></fieldset>
+            <div class="field" id="preset-who">Gilt für
+              <div class="chips" id="preset-members"></div>
+            </div>
             <div class="btn-row">
               <button type="submit" class="primary">Hinzufügen</button>
               <button type="button" id="preset-cancel" hidden>Abbrechen</button>
