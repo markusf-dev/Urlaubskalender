@@ -1,20 +1,24 @@
-// Optional data file on disk (File System Access API, Chrome/Edge desktop).
-// The file handle is kept in IndexedDB so the link survives reloads; the
-// browser may ask again for permission after a restart.
-// If the file lives in a shared cloud folder (iCloud Drive, Dropbox, OneDrive),
-// several people can work on the same plan: changes by others are picked up
-// by polling the file's modification time.
+// Optional storage folder (File System Access API, Chrome/Edge desktop).
+// The user picks a folder in the Finder/Explorer dialog; the plan is kept in
+// urlaubskalender.json inside it. The folder handle is stored in IndexedDB so
+// the browser remembers the location; after a restart it may ask once more
+// for permission (one click).
+// If the folder is shared via iCloud Drive, Dropbox or OneDrive, everybody who
+// picks it works on the same plan: changes by others are picked up by polling
+// the file's modification time.
 (function (root) {
   'use strict';
 
+  const FILE_NAME = 'urlaubskalender.json';
   const DB = 'urlaubskalender';
   const STORE = 'handles';
   const KEY = 'datafile';
   const POLL_MS = 5000;
 
-  const supported = typeof window !== 'undefined' && 'showSaveFilePicker' in window && 'indexedDB' in window;
+  const supported = typeof window !== 'undefined' && 'showDirectoryPicker' in window && 'indexedDB' in window;
 
-  let handle = null;
+  let dir = null; // folder handle (null for links made by older versions)
+  let handle = null; // file handle
   let lastModified = 0;
   let status = 'none'; // none | connected | needs-permission | error
   let lastSaved = null;
@@ -37,8 +41,8 @@
     });
   }
 
-  const loadHandle = () => idb('readonly', (s) => s.get(KEY));
-  const storeHandle = (h) => idb('readwrite', (s) => (h ? s.put(h, KEY) : s.delete(KEY)));
+  const loadRecord = () => idb('readonly', (s) => s.get(KEY));
+  const storeRecord = (rec) => idb('readwrite', (s) => (rec ? s.put(rec, KEY) : s.delete(KEY)));
 
   // ---------- file access ----------
 
@@ -48,7 +52,13 @@
   }
 
   function info() {
-    return { supported, status, name: handle ? handle.name : null, lastSaved };
+    return {
+      supported,
+      status,
+      folder: dir ? dir.name : null,
+      file: handle ? handle.name : (dir ? FILE_NAME : null),
+      lastSaved,
+    };
   }
 
   async function readFile() {
@@ -66,27 +76,29 @@
     lastSaved = new Date();
   }
 
-  // Restores the link from a previous visit. Returns the file's data when
-  // access is still granted, otherwise null (status tells why).
+  const permissionTarget = () => dir || handle;
+
+  // Restores the location from a previous visit. Returns the plan stored there
+  // when access is still granted, otherwise null (status tells why).
   async function init(callbacks) {
     onExternalChange = callbacks.onExternalChange || onExternalChange;
     onStatus = callbacks.onStatus || onStatus;
     if (!supported) { setStatus('none'); return null; }
-    try {
-      handle = await loadHandle();
-    } catch (e) {
-      handle = null;
-    }
-    if (!handle) { setStatus('none'); return null; }
-    if ((await handle.queryPermission({ mode: 'readwrite' })) !== 'granted') {
+    let rec = null;
+    try { rec = await loadRecord(); } catch (e) { /* ignore */ }
+    if (!rec) { setStatus('none'); return null; }
+    if (rec.kind === 'file') { dir = null; handle = rec; } // linked by an older version
+    else { dir = rec.dir; handle = null; }
+    if ((await permissionTarget().queryPermission({ mode: 'readwrite' })) !== 'granted') {
       setStatus('needs-permission');
       return null;
     }
-    return connectExisting();
+    return connect();
   }
 
-  async function connectExisting() {
+  async function connect() {
     try {
+      if (dir) handle = await dir.getFileHandle(FILE_NAME, { create: true });
       const data = await readFile();
       setStatus('connected');
       startPolling();
@@ -99,47 +111,52 @@
 
   // Must be called from a click (browser requirement).
   async function grantPermission() {
-    if (!handle) return null;
-    if ((await handle.requestPermission({ mode: 'readwrite' })) !== 'granted') return null;
-    return connectExisting();
+    const target = permissionTarget();
+    if (!target) return null;
+    if ((await target.requestPermission({ mode: 'readwrite' })) !== 'granted') return null;
+    return connect();
   }
 
-  // Creates a new file and writes the current data into it.
-  async function createFile(data) {
-    const h = await window.showSaveFilePicker({
-      suggestedName: 'urlaubskalender.json',
-      types: [{ description: 'Urlaubskalender', accept: { 'application/json': ['.json'] } }],
-    });
-    handle = h;
-    await storeHandle(h);
-    await writeFile(data);
+  // Opens the folder dialog. If the folder already holds a plan, confirmUse(plan)
+  // decides whether to use it (returning it, it replaces the local plan) or to
+  // cancel. Otherwise `current` is written into a new file and null is returned.
+  async function chooseFolder(current, confirmUse) {
+    const d = await window.showDirectoryPicker({ id: 'urlaubskalender', mode: 'readwrite' });
+    const f = await d.getFileHandle(FILE_NAME, { create: true });
+    const text = await (await f.getFile()).text();
+    let existing = null;
+    if (text.trim()) {
+      try { existing = JSON.parse(text); } catch (e) { throw new Error(`${FILE_NAME} in „${d.name}“ ist beschädigt.`); }
+      if (!confirmUse(existing, d.name)) {
+        const abort = new Error('abgebrochen');
+        abort.name = 'AbortError';
+        throw abort;
+      }
+    }
+    stopPolling();
+    dir = d;
+    handle = f;
+    await storeRecord({ kind: 'folder', dir: d });
+    if (existing) {
+      lastModified = (await f.getFile()).lastModified;
+    } else {
+      await writeFile(current);
+    }
     setStatus('connected');
     startPolling();
-  }
-
-  // Links an existing file and returns its data (which replaces the local plan).
-  async function openFile() {
-    const [h] = await window.showOpenFilePicker({
-      types: [{ description: 'Urlaubskalender', accept: { 'application/json': ['.json'] } }],
-    });
-    if ((await h.requestPermission({ mode: 'readwrite' })) !== 'granted') throw new Error('Kein Schreibzugriff');
-    handle = h;
-    await storeHandle(h);
-    const data = await readFile();
-    setStatus('connected');
-    startPolling();
-    return data;
+    return existing;
   }
 
   async function disconnect() {
     stopPolling();
+    dir = null;
     handle = null;
     lastSaved = null;
-    await storeHandle(null);
+    await storeRecord(null);
     setStatus('none');
   }
 
-  // Writes the data unless someone else changed the file since we last read
+  // Writes the plan unless someone else changed the file since we last read
   // it; in that case their version is handed to onExternalChange instead, so
   // nothing gets overwritten silently.
   let writing = Promise.resolve();
@@ -187,5 +204,5 @@
     window.removeEventListener('focus', check);
   }
 
-  root.KalStorage = { supported, init, info, grantPermission, createFile, openFile, disconnect, save };
+  root.KalStorage = { supported, FILE_NAME, init, info, grantPermission, chooseFolder, disconnect, save };
 })(this);

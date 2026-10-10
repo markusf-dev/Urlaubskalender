@@ -47,8 +47,9 @@
     return defaultState();
   }
 
-  // The household plan; year, selection and suggestion options stay per device.
-  const SHARED_KEYS = ['region', 'members', 'budgets', 'vacations', 'presets'];
+  // Everything that belongs to the household's plan and configuration.
+  // Year, ticked people and the collapsed sidebar stay per device.
+  const SHARED_KEYS = ['region', 'members', 'budgets', 'vacations', 'presets', 'opt'];
 
   function sharedData() {
     const data = { app: 'urlaubskalender', version: 1 };
@@ -543,7 +544,7 @@
   function toast(msg) {
     const el = $('toast');
     el.textContent = msg;
-    // As a popover the toast sits in the top layer, i.e. also above the settings dialog.
+    // As a popover the toast sits in the top layer, above everything else.
     if (el.showPopover) {
       if (el.matches(':popover-open')) el.hidePopover();
       el.showPopover();
@@ -848,38 +849,56 @@
     render();
   }
 
-  // ---------- settings: data file, backup, sharing ----------
+  // ---------- settings: storage folder, backup, sharing ----------
 
   function renderStorage(info) {
     const S = window.KalStorage;
-    const time = info.lastSaved ? ` · zuletzt gespeichert ${info.lastSaved.toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' })}` : '';
-    const status = {
-      none: 'Die Daten liegen nur in diesem Browser.',
-      connected: `Verknüpft mit <b>${esc(info.name)}</b>${time}`,
-      'needs-permission': `Verknüpft mit <b>${esc(info.name)}</b> – der Browser braucht deine Erlaubnis für den Zugriff.`,
-      error: `Die Datei <b>${esc(info.name || '')}</b> ist nicht erreichbar (verschoben oder gelöscht?).`,
+    const where = info.folder ? `${esc(info.folder)} › ${esc(info.file)}` : esc(info.file || '');
+    const time = info.lastSaved
+      ? ` · gespeichert ${info.lastSaved.toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' })}` : '';
+
+    $('storage-status').innerHTML = {
+      none: 'Der Plan liegt nur in diesem Browser.',
+      connected: `Gespeichert in <b>${where}</b>${time}`,
+      'needs-permission': `Ablage <b>${where}</b> – der Browser braucht einmal deine Erlaubnis.`,
+      error: `Ablage <b>${where}</b> ist nicht erreichbar (Ordner verschoben, umbenannt oder offline?).`,
     }[info.status];
-    $('storage-status').innerHTML = status;
 
     let actions = '';
     if (!S.supported) {
-      $('storage-hint').textContent = 'Dieser Browser (z. B. Safari, Firefox oder iPhone) kann keine Datei dauerhaft verknüpfen. '
-        + 'Nutze dort Export und Import, oder öffne die App am Computer in Chrome oder Edge.';
+      $('storage-hint').textContent = 'Dieser Browser (Safari, Firefox, iPhone) kann keinen Ordner dauerhaft verknüpfen. '
+        + 'Nutze hier Export und Import, oder öffne die App am Computer in Chrome oder Edge.';
     } else {
-      $('storage-hint').textContent = 'Jede Änderung wird sofort in die Datei geschrieben. Ändert jemand anderes die Datei, '
-        + 'wird sein Stand innerhalb weniger Sekunden übernommen.';
+      $('storage-hint').textContent = `Im gewählten Ordner wird die Datei ${S.FILE_NAME} angelegt; jede Änderung wird sofort dort gespeichert. `
+        + 'Der Browser merkt sich den Ordner auch nach einem Neustart.';
       if (info.status === 'needs-permission') actions += '<button type="button" class="primary" data-storage="grant">Zugriff erlauben</button>';
-      if (info.status !== 'connected') {
-        actions += '<button type="button" data-storage="create">Neue Datei anlegen …</button>'
-          + '<button type="button" data-storage="open">Vorhandene Datei öffnen …</button>';
-      }
+      actions += `<button type="button"${info.status === 'none' ? ' class="primary"' : ''} data-storage="choose">${info.status === 'none' ? 'Ordner wählen …' : 'Anderen Ordner wählen …'}</button>`;
       if (info.status !== 'none') actions += '<button type="button" data-storage="disconnect">Verknüpfung lösen</button>';
     }
     $('storage-actions').innerHTML = actions;
 
-    // Header hint so a missing permission after a restart is noticed.
+    // Always visible in the top card of the sidebar.
+    const line = $('storage-line');
+    line.className = `storage-line ${info.status}`;
+    line.innerHTML = {
+      none: 'Ablage: nur dieser Browser',
+      connected: `Ablage: <b>${where}</b>`,
+      'needs-permission': `Ablage: <b>${where}</b> – Zugriff erlauben`,
+      error: `Ablage: <b>${where}</b> – nicht erreichbar`,
+    }[info.status];
+
+    // Header hint in case the sidebar is collapsed.
     $('storage-pill').hidden = info.status !== 'needs-permission' && info.status !== 'error';
-    $('storage-pill').textContent = info.status === 'error' ? '⚠ Datendatei nicht erreichbar' : '⚠ Zugriff auf Datendatei erlauben';
+    $('storage-pill').textContent = info.status === 'error' ? '⚠ Datenablage nicht erreichbar' : '⚠ Zugriff auf Datenablage erlauben';
+  }
+
+  function showSettings() {
+    if (document.querySelector('.app').classList.contains('collapsed')) $('sidebar-toggle').click();
+    const card = $('settings-card');
+    card.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    card.classList.remove('flash');
+    void card.offsetWidth; // restart the highlight animation
+    card.classList.add('flash');
   }
 
   async function storageAction(action) {
@@ -888,26 +907,22 @@
       if (action === 'grant') {
         const data = await S.grantPermission();
         if (data && validShared(data)) applyShared(data);
-        else if (data === null && S.info().status === 'connected') { lastSharedJson = null; save(); } // empty file: fill it
-      } else if (action === 'create') {
-        await S.createFile(sharedData());
-        toast('Datei angelegt. Änderungen werden ab jetzt dort gespeichert.');
-      } else if (action === 'open') {
-        const data = await S.openFile();
-        if (data && validShared(data)) {
+        else if (S.info().status === 'connected') { lastSharedJson = null; save(); } // new/empty file: fill it
+      } else if (action === 'choose') {
+        const data = await S.chooseFolder(sharedData(), (existing, folder) => {
+          if (!validShared(existing)) throw new Error(`${S.FILE_NAME} in „${folder}“ ist keine Urlaubskalender-Datei.`);
+          return confirm(`Im Ordner „${folder}“ liegt bereits ein Urlaubsplan.\n\n`
+            + 'OK: diesen Plan verwenden (ersetzt den Plan in diesem Browser).\nAbbrechen: Ordner nicht verknüpfen.');
+        });
+        if (data) {
           applyShared(data);
-          toast('Datei geöffnet. Der Plan aus der Datei wird jetzt verwendet.');
-        } else if (!data) {
-          lastSharedJson = null;
-          save();
-          toast('Die Datei war leer – der aktuelle Plan wurde hineingeschrieben.');
+          toast('Verknüpft. Der Plan aus dem Ordner wird jetzt verwendet.');
         } else {
-          await S.disconnect();
-          toast('Das ist keine Urlaubskalender-Datei.');
+          toast(`Verknüpft. Der Plan wird ab jetzt in ${S.FILE_NAME} gespeichert.`);
         }
       } else if (action === 'disconnect') {
         await S.disconnect();
-        toast('Verknüpfung gelöst. Die Daten bleiben in diesem Browser.');
+        toast('Verknüpfung gelöst. Der Plan bleibt in diesem Browser.');
       }
     } catch (e) {
       if (e.name !== 'AbortError') toast(`Das hat nicht geklappt: ${e.message}`);
@@ -930,7 +945,7 @@
       if (!confirm('Der aktuelle Plan wird durch den Inhalt der Datei ersetzt. Fortfahren?')) return;
       applyShared(data);
       lastSharedJson = null;
-      save(); // also update a linked data file
+      save(); // also update a linked storage folder
       toast('Import abgeschlossen.');
     } catch (e) {
       toast('Die Datei konnte nicht gelesen werden.');
@@ -938,10 +953,8 @@
   }
 
   function bindSettings() {
-    const dialog = $('settings');
-    $('settings-open').addEventListener('click', () => dialog.showModal());
-    $('storage-pill').addEventListener('click', () => dialog.showModal());
-    dialog.addEventListener('click', (e) => { if (e.target === dialog) dialog.close(); }); // backdrop
+    $('storage-line').addEventListener('click', showSettings);
+    $('storage-pill').addEventListener('click', showSettings);
     $('storage-actions').addEventListener('click', (e) => {
       const btn = e.target.closest('[data-storage]');
       if (btn) storageAction(btn.dataset.storage);
@@ -959,11 +972,12 @@
         if (!validShared(data)) return;
         applyShared(data);
         toast(conflict
-          ? 'Die Datei wurde inzwischen von jemand anderem geändert. Deren Stand ist jetzt geladen – bitte deine letzte Änderung wiederholen.'
-          : 'Änderungen aus der Datendatei übernommen.');
+          ? 'Der Plan wurde inzwischen von jemand anderem geändert. Dessen Stand ist jetzt geladen – bitte deine letzte Änderung wiederholen.'
+          : 'Änderungen aus der Datenablage übernommen.');
       },
     }).then((data) => {
       if (data && validShared(data)) applyShared(data);
+      else if (window.KalStorage.info().status === 'connected' && !data) { lastSharedJson = null; save(); }
     });
     renderStorage(window.KalStorage.info());
   }

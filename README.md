@@ -62,25 +62,33 @@ Mit **«** oben links klappst du die Seitenleiste ein, wenn du nur den Kalender 
 
 ## Daten und Sicherung
 
-Ohne weitere Einstellung speichert die App alles nur im Browser des jeweiligen Geräts. Deshalb sehen andere Geräte und Personen deine Einträge nicht automatisch.
+Ohne weitere Einstellung speichert die App alles nur im Browser des jeweiligen Geräts. Andere Geräte und Personen sehen deine Einträge dann nicht.
 
-Unter **⚙︎ Einstellungen** findest du:
-- **Exportieren / Importieren:** Speichert den kompletten Plan als Datei oder lädt ihn wieder. Damit sicherst du deine Daten oder überträgst sie auf ein anderes Gerät. Das funktioniert in jedem Browser, auch auf dem iPhone.
-- **Datenablage:** Verknüpft die App mit einer Datei an einem Ort deiner Wahl. Jede Änderung wird sofort dort gespeichert. Das geht nur in **Chrome und Edge auf dem Computer**.
+Ganz unten in der linken Leiste findest du die **Einstellungen**:
+- **Datenablage:** Mit **„Ordner wählen …“** öffnet sich der Finder bzw. Explorer, und du wählst einen Ordner aus. Die App legt dort die Datei `urlaubskalender.json` an und speichert jede Änderung sofort. In der Datei steht der komplette Plan mit allen Einstellungen: Bundesland, Personen, Urlaubsanspruch, Urlaube, Vorlagen und Vorschlagseinstellungen. Das funktioniert nur in **Chrome und Edge auf dem Computer**.
+- **Exportieren / Importieren:** Speichert den Plan als Datei oder lädt ihn wieder, z. B. als Sicherung oder für ein anderes Gerät. Das klappt in jedem Browser, auch auf dem iPhone.
+
+Wo der Plan gerade liegt, steht immer oben links unter dem Bundesland, z. B. **„💾 Ablage: Familie › urlaubskalender.json“**. Ein Klick darauf springt zu den Einstellungen.
+
+**Merkt sich der Browser den Ordner?** Ja. Er speichert den Verweis auf den Ordner und verbindet sich beim nächsten Start automatisch. Nach einem Neustart fragt Chrome bzw. Edge eventuell einmal nach Zugriff. Dann wird die Ablage-Zeile orange, und du klickst in den Einstellungen auf **„Zugriff erlauben“**. In der installierten App bietet Chrome dabei meist **„Bei jedem Besuch zulassen“** an. Danach fragt der Browser nicht mehr. Aus Sicherheitsgründen sieht die App nur den Ordnernamen, nicht den vollständigen Pfad.
 
 ## Gemeinsam planen
 
 Damit alle im Haushalt denselben Plan sehen und bearbeiten können:
 
-1. Eine Person öffnet **⚙︎ Einstellungen → „Neue Datei anlegen …“** und speichert die Datei in einem **geteilten Cloud-Ordner**, z. B. in iCloud Drive, Dropbox oder OneDrive. Alle müssen diesen Ordner auf ihrem Computer synchronisieren.
-2. Alle anderen wählen **„Vorhandene Datei öffnen …“** und dieselbe Datei.
-3. Ab jetzt erscheinen die Änderungen der anderen nach ein paar Sekunden, sobald der Cloud-Dienst die Datei abgeglichen hat.
+1. Einen Ordner in **iCloud Drive, Dropbox oder OneDrive** mit allen im Haushalt teilen. Alle müssen ihn auf ihrem Computer synchronisieren.
+2. Die erste Person wählt in den Einstellungen **„Ordner wählen …“** und diesen Ordner. Die App legt darin den Plan an.
+3. Alle anderen wählen ebenfalls **„Ordner wählen …“** und denselben Ordner. Die App erkennt den vorhandenen Plan und fragt, ob sie ihn verwenden soll.
+4. Ab jetzt erscheinen die Änderungen der anderen nach ein paar Sekunden, sobald der Cloud-Dienst abgeglichen hat.
 
 Gut zu wissen:
-- **Gemeinsam und pro Gerät:** In der Datei stehen nur die gemeinsamen Daten: Personen, Urlaubsanspruch, Urlaube, Vorlagen und Bundesland. Welches Jahr du gerade ansiehst und wer angehakt ist, bleibt auf deinem Gerät.
+- **Pro Gerät:** Welches Jahr du gerade ansiehst, wer angehakt ist und ob die Seitenleiste eingeklappt ist, bleibt auf deinem Gerät.
 - **Gleichzeitige Änderungen:** Ändern zwei Personen fast gleichzeitig etwas, gilt der zuerst gespeicherte Stand. Die andere Person bekommt einen Hinweis und wiederholt ihre Änderung. Es wird nichts still überschrieben.
-- **Neue Erlaubnis:** Nach einem Neustart fragt der Browser eventuell erneut nach Zugriff auf die Datei. Dann erscheint oben ein oranger Knopf **„Zugriff auf Datendatei erlauben“**.
-- **iPhone, Safari und Firefox:** Diese Browser können keine Datei dauerhaft verknüpfen. Dort gleichst du per Export und Import ab.
+- **iPhone, Safari und Firefox:** Diese Browser können keinen Ordner dauerhaft verknüpfen. Dort gleichst du per Export und Import ab.
+
+### Mehrere Haushalte, ganz ohne Konten
+
+Alle nutzen dieselbe App unter derselben Adresse, aber jeder Haushalt hat seinen eigenen Plan in seinem eigenen Ordner. Das GitHub-Projekt enthält nur den Programmcode, keine Daten. Es gibt keinen Server, der Pläne speichert, und deshalb auch keine Benutzerkonten. Wer einen Plan sehen darf, regelt die Ordnerfreigabe beim Cloud-Anbieter: Wer den Ordner nicht geteilt bekommt, sieht den Plan nicht.
 
 ## Datenquellen
 
@@ -100,7 +108,7 @@ npm test   # Tests für Optimierer und Datumsberechnung (node:test)
 | `js/dates.js` | Datumsfunktionen, Feiertage, Brauchtumstage |
 | `js/school.js` | Schulferien (API und Offline-Daten) |
 | `js/optimizer.js` | Urlaubsvorschlag: dynamische Programmierung über Tag × Restbudget (halbe Tage) × Anzahl Blöcke |
-| `js/storage.js` | Datendatei (File System Access API) |
+| `js/storage.js` | Datenablage im gewählten Ordner (File System Access API) |
 | `js/app.js` | Oberfläche und Zustand |
 | `sw.js` | Offline-Unterstützung |
 
