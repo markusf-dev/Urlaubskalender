@@ -59,7 +59,7 @@
       </section>
 
       <section class="card">
-        <h2>Urlaub eintragen</h2>
+        <h2 id="entry-title">Urlaub eintragen</h2>
         <div class="field" id="entry-who" hidden>Für
           <div class="chips" id="entry-members"></div>
         </div>
@@ -67,6 +67,9 @@
           <label class="field">Von <input type="date" id="range-from"></label>
           <label class="field">Bis <input type="date" id="range-to"></label>
         </div>
+        <label class="field">Titel (optional)
+          <input id="range-title" maxlength="40" placeholder="z. B. Mallorca">
+        </label>
         <label class="field">Umfang
           <select id="range-extent">
             <option value="full">ganzer Tag</option>
@@ -75,7 +78,10 @@
           </select>
         </label>
         <p class="muted small" id="range-preview">Oder im Kalender klicken bzw. mit der Maus ziehen.</p>
-        <button type="button" class="primary" id="range-add">Eintragen</button>
+        <div class="btn-row">
+          <button type="button" class="primary" id="range-add">Eintragen</button>
+          <button type="button" id="range-cancel" hidden>Abbrechen</button>
+        </div>
         <ul class="list" id="blocks"></ul>
       </section>
 

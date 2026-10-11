@@ -220,6 +220,24 @@ details summary { cursor: pointer; color: var(--accent); margin-top: 8px; }
   text-overflow: ellipsis;
   padding-right: 10px;
 }
+.cal td.has-title { overflow: visible; }
+.cal .vtitle {
+  position: absolute;
+  top: 0;
+  left: 50%;
+  z-index: 2;
+  writing-mode: vertical-rl;
+  transform: translateX(-50%) rotate(180deg);
+  text-align: center;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  font: bold 11px Arial, Helvetica, sans-serif;
+  letter-spacing: .3px;
+  color: #1e3a8a;
+  text-shadow: 0 0 2px #fff, 0 0 2px #fff, 0 0 3px #fff;
+  pointer-events: none;
+}
 .cal .half { position: absolute; right: 13px; bottom: 1px; font-size: 10px; font-weight: bold; }
 
 /* one marker segment per household member, bottom edge */
@@ -291,5 +309,6 @@ button.danger:hover { border-color: #b42318; }
   .cal th { font-size: 10px; }
   .cal td { height: 16.5px; padding-top: 0; }
   .cal .name, .cal .kw { font-size: 6px; }
+  .cal .vtitle { font-size: 8px; }
   * { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
 }

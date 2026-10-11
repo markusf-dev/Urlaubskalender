@@ -31,6 +31,7 @@
       budgets: {}, // year -> memberId -> days
       vacations: {}, // year -> memberId -> sorted ISO dates of manually booked workdays
       halfDays: {}, // year -> memberId -> { date: 'am' | 'pm' } for booked half days
+      titles: [], // { id, from, to, text, members } shown vertically over booked vacation
       presets: DEFAULT_PRESETS,
       opt: { style: 'balanced', maxBlocks: 0, school: 'any' },
     };
@@ -50,7 +51,7 @@
 
   // Everything that belongs to the household's plan and is shared via the
   // household link. Year, ticked people and the collapsed sidebar stay per device.
-  const SHARED_KEYS = ['region', 'members', 'budgets', 'vacations', 'halfDays', 'presets', 'opt'];
+  const SHARED_KEYS = ['region', 'members', 'budgets', 'vacations', 'halfDays', 'titles', 'presets', 'opt'];
 
   function sharedData() {
     const data = { app: 'urlaubskalender', version: 1 };
@@ -90,6 +91,7 @@
   let state = load();
   let school = { list: [], source: 'loading' };
   let suggestion = null; // { blocks, opportunities, members }
+  let editing = null; // vacation entry being edited: { start, end, oldMembers, members }
   let model = null;
 
   // ---------- helpers ----------
@@ -301,8 +303,66 @@
 
   function commit({ keepSuggestion = false } = {}) {
     if (!keepSuggestion) suggestion = null;
+    dropOrphanTitles();
     save();
     render();
+  }
+
+  // ---------- vacation titles ----------
+
+  // A title stays while at least one of its people has vacation booked in its range.
+  function titleVisible(t) {
+    for (let d = t.from; d <= t.to; d = D.addDays(d, 1)) {
+      if (t.members.some((id) => manualSet(+d.slice(0, 4), id).has(d))) return true;
+    }
+    return false;
+  }
+
+  function dropOrphanTitles() {
+    if (state.titles.some((t) => !titleVisible(t))) state.titles = state.titles.filter(titleVisible);
+  }
+
+  // Titles to draw in the shown year: vacation titles plus named fixed-vacation presets.
+  function titleRanges(year) {
+    const list = state.titles.map((t) => ({ from: t.from, to: t.to, text: t.text }));
+    for (const p of state.presets) {
+      if (p.type !== 'block' || !p.active || !p.label) continue;
+      if (!state.members.some((m) => appliesTo(p, m.id))) continue;
+      const from = `${year}-${p.from}`, to = p.from <= p.to ? `${year}-${p.to}` : `${year + 1}-${p.to}`;
+      list.push({ from, to, text: p.label });
+      if (p.from > p.to) list.push({ from: `${year - 1}-${p.from}`, to: `${year}-${p.to}`, text: p.label });
+    }
+    const start = `${year}-01-01`, end = `${year}-12-31`;
+    return list
+      .filter((t) => t.to >= start && t.from <= end)
+      .map((t) => ({ ...t, from: t.from < start ? start : t.from, to: t.to > end ? end : t.to }));
+  }
+
+  // Draws each title rotated in the middle of the month column over its days.
+  // Positions are measured, so it runs again on resize and for printing.
+  function drawTitles() {
+    const cal = $('calendar');
+    cal.querySelectorAll('.vtitle').forEach((el) => el.remove());
+    cal.querySelectorAll('td.has-title').forEach((td) => td.classList.remove('has-title'));
+    for (const t of titleRanges(state.year)) {
+      let segStart = t.from;
+      for (let d = t.from; d <= t.to; d = D.addDays(d, 1)) {
+        const next = D.addDays(d, 1);
+        if (d !== t.to && next.slice(5, 7) === d.slice(5, 7)) continue; // segment ends at month end
+        const first = cal.querySelector(`td[data-date="${segStart}"]`);
+        const last = cal.querySelector(`td[data-date="${d}"]`);
+        if (first && last) {
+          const height = last.getBoundingClientRect().bottom - first.getBoundingClientRect().top;
+          const el = document.createElement('span');
+          el.className = 'vtitle';
+          el.textContent = t.text;
+          el.style.height = `${height}px`;
+          first.classList.add('has-title');
+          first.appendChild(el);
+        }
+        segStart = next;
+      }
+    }
   }
 
   // Adds or removes every bookable workday between a and b (may span years)
@@ -357,12 +417,48 @@
     commit();
   }
 
+  function clearEntryForm() {
+    $('range-from').value = '';
+    $('range-to').value = '';
+    $('range-extent').value = 'full';
+    $('range-title').value = '';
+  }
+
+  // Loads a listed vacation entry into the form ("Urlaub bearbeiten").
+  function startEdit(block) {
+    const days = [];
+    const extents = [];
+    for (let d = block.start; d <= block.end; d = D.addDays(d, 1)) {
+      const day = model.byDate.get(d);
+      const booked = block.members.filter((id) => day.per[id].manualVac);
+      if (!booked.length) continue;
+      days.push(d);
+      booked.forEach((id) => extents.push(day.per[id].halfManual || 'full'));
+    }
+    if (!days.length) return;
+    const title = state.titles.find((t) => t.from <= block.end && t.to >= block.start
+      && t.members.some((id) => block.members.includes(id)));
+    editing = { start: block.start, end: block.end, oldMembers: [...block.members], members: [...block.members] };
+    $('range-from').value = days[0];
+    $('range-to').value = days[days.length - 1];
+    $('range-extent').value = extents.every((x) => x === extents[0]) ? extents[0] : 'full';
+    $('range-title').value = title ? title.text : '';
+    render();
+    $('range-from').closest('.card').scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }
+
+  // People the entry form applies to: the entry being edited, or the "Für" tags.
+  const entryMembers = () => (editing ? editing.members : state.selected);
+
   function rangeCost(a, b, memberId, half = null) {
     if (a > b) [a, b] = [b, a];
+    // While editing, the entry's current days count as free to rebook.
+    const ignore = editing && editing.oldMembers.includes(memberId) ? editing : null;
     let cost = 0;
     for (let d = a; d <= b; d = D.addDays(d, 1)) {
       const info = dayInfo(d, memberId);
-      if (!info.free && !info.blockPreset && !manualSet(+d.slice(0, 4), memberId).has(d)) {
+      const booked = manualSet(+d.slice(0, 4), memberId).has(d) && !(ignore && d >= ignore.start && d <= ignore.end);
+      if (!info.free && !info.blockPreset && !booked) {
         cost += half ? Math.min(info.weight, 0.5) : info.weight;
       }
     }
@@ -385,7 +481,10 @@
     $('sug-blocks').value = String(state.opt.maxBlocks);
     $('sug-school').value = state.opt.school;
     $('entry-who').hidden = !multi();
-    $('entry-members').innerHTML = personTags(state.selected, 'data-entry-member');
+    $('entry-members').innerHTML = personTags(entryMembers(), 'data-entry-member');
+    $('entry-title').textContent = editing ? 'Urlaub bearbeiten' : 'Urlaub eintragen';
+    $('range-add').textContent = editing ? 'Speichern' : 'Eintragen';
+    $('range-cancel').hidden = !editing;
     if (!suggestion) $('sug-budget').value = Math.max(0, jointRest());
 
     renderMembers();
@@ -447,6 +546,7 @@
       html += '</tr>';
     }
     $('calendar').innerHTML = html + '</tbody>';
+    drawTitles();
   }
 
   function cellHtml(day, sugg, inSuggRun) {
@@ -479,6 +579,7 @@
       }
     }
     if (sugg) title.push(`Vorschlag${multi() ? ` für ${names(suggestion.members)}` : ''}`);
+    for (const t of titleRanges(state.year)) if (day.date >= t.from && day.date <= t.to) title.push(`„${t.text}“`);
     if (day.jointRun) title.push(`${daysLabel(day.jointRun)} frei am Stück`);
 
     const companyLabel = day.companyFree
@@ -518,7 +619,8 @@
             ${b.presets.map((p) => `<span class="tag">${esc(p.label || 'Vorlage')}</span>`).join(' ')}</div>
           ${multi() ? chips(b, i) : ''}
         </div>
-        ${b.manual ? `<button type="button" class="link" data-remove-block="${i}" title="Eingetragenen Urlaub entfernen">✕</button>` : ''}
+        ${b.manual ? `<button type="button" class="link" data-edit-block="${i}" title="Bearbeiten">✎</button>
+        <button type="button" class="link" data-remove-block="${i}" title="Eingetragenen Urlaub entfernen">✕</button>` : ''}
       </li>`).join('');
   }
 
@@ -587,7 +689,7 @@
       return;
     }
     const half = $('range-extent').value === 'full' ? null : $('range-extent').value;
-    const costs = selected().map((m) => ({ m, cost: rangeCost(a, b, m.id, half) }));
+    const costs = state.members.filter((m) => entryMembers().includes(m.id)).map((m) => ({ m, cost: rangeCost(a, b, m.id, half) }));
     const same = costs.every((c) => c.cost === costs[0].cost);
     $('range-preview').textContent = same
       ? `Kostet ${daysLabel(costs[0].cost)} Urlaub${costs.length > 1 ? ' je Person' : ''}.`
@@ -669,6 +771,16 @@
     $('entry-members').addEventListener('click', (e) => {
       const id = e.target.closest('[data-entry-member]')?.dataset.entryMember;
       if (!id) return;
+      if (editing) {
+        if (editing.members.includes(id)) {
+          if (editing.members.length === 1) { toast('Mindestens eine Person muss ausgewählt sein.'); return; }
+          editing.members = editing.members.filter((x) => x !== id);
+        } else {
+          editing.members = state.members.map((m) => m.id).filter((x) => x === id || editing.members.includes(x));
+        }
+        render();
+        return;
+      }
       if (state.selected.includes(id)) {
         if (state.selected.length === 1) { toast('Mindestens eine Person muss ausgewählt sein.'); return; }
         state.selected = state.selected.filter((x) => x !== id);
@@ -681,14 +793,41 @@
       const a = $('range-from').value, b = $('range-to').value || a;
       if (!a) { toast('Bitte ein Startdatum wählen.'); return; }
       const half = $('range-extent').value === 'full' ? null : $('range-extent').value;
-      if (!setRange(a, b, true, state.selected, half)) toast('Im Zeitraum gibt es keine Arbeitstage, die noch frei sind.');
-      $('range-from').value = '';
-      $('range-to').value = '';
-      $('range-extent').value = 'full';
+      const text = $('range-title').value.trim();
+      const [from, to] = a <= b ? [a, b] : [b, a];
+      const members = [...entryMembers()];
+      const wasEditing = !!editing;
+      if (editing) {
+        // Replace the entry: remove its days and its title, then book the new values.
+        const old = editing;
+        setRange(old.start, old.end, false, old.oldMembers);
+        state.titles = state.titles.flatMap((t) => {
+          if (!(t.from <= old.end && t.to >= old.start)) return [t];
+          const rest = t.members.filter((id) => !old.oldMembers.includes(id));
+          return rest.length ? [{ ...t, members: rest }] : [];
+        });
+        editing = null;
+      }
+      if (!setRange(a, b, true, members, half)) toast('Im Zeitraum gibt es keine Arbeitstage, die noch frei sind.');
+      else if (wasEditing) toast('Urlaub geändert.');
+      if (text) {
+        // A new title for the same days replaces the old one.
+        state.titles = state.titles.filter((t) => !(t.from === from && t.to === to));
+        state.titles.push({ id: `t-${Date.now()}`, from, to, text, members });
+      }
+      clearEntryForm();
       commit();
     });
 
+    $('range-cancel').addEventListener('click', () => {
+      editing = null;
+      clearEntryForm();
+      render();
+    });
+
     $('blocks').addEventListener('click', (e) => {
+      const edit = e.target.closest('[data-edit-block]');
+      if (edit) { startEdit(model.blocks[+edit.dataset.editBlock]); return; }
       const chip = e.target.closest('[data-member]');
       if (chip) {
         toggleBlockMember(model.blocks[+chip.dataset.block], chip.dataset.member);
@@ -697,6 +836,7 @@
       const btn = e.target.closest('[data-remove-block]');
       if (!btn) return;
       const b = model.blocks[+btn.dataset.removeBlock];
+      if (editing) { editing = null; clearEntryForm(); }
       setRange(b.start, b.end, false, b.members);
       commit();
     });
@@ -853,6 +993,14 @@
     $('print').addEventListener('click', () => window.print());
     bindSidebarToggle();
     bindCalendar();
+
+    // Title positions depend on the rendered row heights.
+    let resizeTimer;
+    window.addEventListener('resize', () => { clearTimeout(resizeTimer); resizeTimer = setTimeout(drawTitles, 100); });
+    window.addEventListener('beforeprint', drawTitles);
+    window.addEventListener('afterprint', drawTitles);
+    window.matchMedia('print').addEventListener?.('change', drawTitles);
+    document.fonts?.ready.then(drawTitles);
   }
 
   // Remembered per browser; purely a view preference, so it lives outside `state`.
