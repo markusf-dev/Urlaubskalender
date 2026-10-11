@@ -1,7 +1,9 @@
-// Offline support: serves the app from cache and refreshes it in the background
-// (stale-while-revalidate), so a new version is active on the next start.
-// Requests to other origins (school holiday API) are not touched.
-const CACHE = 'urlaubskalender-v9';
+// Offline support. Online, every request goes to the network first (revalidated,
+// so a new version shows up on the next load); the cache is only the fallback
+// when offline or when the network is too slow. Requests to other origins
+// (school holiday API, sync service) are not touched.
+const CACHE = 'urlaubskalender-v10';
+const NETWORK_TIMEOUT_MS = 4000;
 const FILES = [
   './',
   'index.html',
@@ -21,7 +23,12 @@ const FILES = [
 ];
 
 self.addEventListener('install', (event) => {
-  event.waitUntil(caches.open(CACHE).then((cache) => cache.addAll(FILES)).then(() => self.skipWaiting()));
+  // cache: 'reload' bypasses the browser's HTTP cache, so no stale files end up here.
+  event.waitUntil(
+    caches.open(CACHE)
+      .then((cache) => cache.addAll(FILES.map((f) => new Request(f, { cache: 'reload' }))))
+      .then(() => self.skipWaiting()),
+  );
 });
 
 self.addEventListener('activate', (event) => {
@@ -35,20 +42,18 @@ self.addEventListener('activate', (event) => {
 self.addEventListener('fetch', (event) => {
   const { request } = event;
   if (request.method !== 'GET' || new URL(request.url).origin !== self.location.origin) return;
-  event.respondWith(
-    caches.open(CACHE).then(async (cache) => {
-      const cached = await cache.match(request, { ignoreSearch: true });
-      const fresh = fetch(request)
-        .then((res) => {
-          if (res.ok) cache.put(request, res.clone());
-          return res;
-        })
-        .catch(() => cached);
-      if (cached) {
-        event.waitUntil(fresh);
-        return cached;
-      }
-      return fresh;
-    }),
-  );
+  event.respondWith((async () => {
+    const cache = await caches.open(CACHE);
+    const network = fetch(request.url, { cache: 'no-cache', credentials: 'same-origin' }).then((res) => {
+      if (res.ok) cache.put(request, res.clone());
+      return res;
+    });
+    const timeout = new Promise((resolve) => setTimeout(resolve, NETWORK_TIMEOUT_MS));
+    try {
+      const res = await Promise.race([network, timeout]);
+      if (res) return res;
+    } catch (e) { /* offline */ }
+    const cached = await cache.match(request, { ignoreSearch: true });
+    return cached || network;
+  })());
 });
