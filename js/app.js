@@ -517,7 +517,7 @@
     }).join('');
 
     $('member-legend').innerHTML = multi()
-      ? state.members.map((m) => `<li><i class="sw" style="background:${m.color}"></i>${esc(m.name)}</li>`).join('')
+      ? state.members.map((m) => `<li><i class="sw sw-dot" style="background:${m.color}"></i>${esc(m.name)}</li>`).join('')
       : '';
     // Keep the choice made in the preset form (e.g. while editing); new people start chosen.
     const chosen = new Map([...$('preset-members').querySelectorAll('.chip')].map((el) => [el.dataset.presetMember, el.classList.contains('on')]));
@@ -587,16 +587,15 @@
       : '';
     const name = day.holiday || companyLabel || (day.halfLabel ? HALF_LABEL[day.halfLabel] : '');
     const showKw = day.wd === 0 || day.index === 0;
-    const marks = multi() && onVacation.length
-      ? '<span class="marks">' + state.members.map((m) =>
-        `<i style="background:${personOff(m) ? m.color : 'transparent'}"></i>`).join('') + '</span>'
+    // One dot per person who is off, below the date; a day name follows the dots.
+    const dots = multi() && onVacation.length
+      ? '<span class="dots">' + onVacation.map((m) => `<i style="background:${m.color}"></i>`).join('') + '</span>'
       : '';
     return `<td class="${cls.join(' ')}" data-date="${day.date}" title="${esc(title.join('\n'))}">`
       + `${day.date.slice(8)} ${D.WEEKDAYS[day.wd]}`
       + (showKw ? `<span class="kw">KW ${String(D.isoWeek(day.date)).padStart(2, '0')}</span>` : '')
-      + (name ? `<span class="name">${esc(name)}</span>` : '')
+      + (dots || name ? `<span class="line2">${dots}${name ? `<span class="name">${esc(name)}</span>` : ''}</span>` : '')
       + (day.half ? '<span class="half">½</span>' : '')
-      + marks
       + '</td>';
   }
 

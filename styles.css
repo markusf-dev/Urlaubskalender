@@ -211,14 +211,17 @@ details summary { cursor: pointer; color: var(--accent); margin-top: 8px; }
 .cal td.in-sugg-run::before { background: var(--sugg-run); }
 
 .cal .kw { position: absolute; top: 1px; right: 13px; font-size: 8px; font-weight: normal; }
+.cal .line2 { display: flex; align-items: center; gap: 3px; padding-right: 10px; min-width: 0; }
+.cal .dots { display: inline-flex; gap: 2px; flex: none; }
+.cal .dots i { width: 6px; height: 6px; border-radius: 50%; box-shadow: 0 0 0 1px #fff; }
 .cal .name {
   display: block;
+  min-width: 0;
   font-size: 8px;
   font-weight: normal;
   line-height: 1.1;
   overflow: hidden;
   text-overflow: ellipsis;
-  padding-right: 10px;
 }
 .cal td.has-title { overflow: visible; }
 .cal .vtitle {
@@ -241,8 +244,6 @@ details summary { cursor: pointer; color: var(--accent); margin-top: 8px; }
 .cal .half { position: absolute; right: 13px; bottom: 1px; font-size: 10px; font-weight: bold; }
 
 /* one marker segment per household member, bottom edge */
-.cal .marks { position: absolute; left: 6px; right: 24px; bottom: 1px; height: 4px; display: flex; gap: 1px; }
-.cal .marks i { flex: 1; border-radius: 1px; }
 
 .legend { display: flex; flex-wrap: wrap; gap: 6px 16px; list-style: none; padding: 0; margin: 10px 0 0; font-size: 12px; color: var(--muted); }
 .legend li { display: flex; align-items: center; gap: 5px; }
@@ -260,6 +261,7 @@ details summary { cursor: pointer; color: var(--accent); margin-top: 8px; }
 .sw-preset { background: repeating-linear-gradient(135deg, var(--vac) 0 3px, #dce8ff 3px 6px); }
 .sw-sugg { background: repeating-linear-gradient(135deg, var(--sugg) 0 3px, #fff4d1 3px 6px); }
 .sw-run { width: 4px; background: var(--run); border: 0; }
+.sw-dot { width: 8px; height: 8px; border-radius: 50%; border: 0; }
 
 .head-actions { display: flex; gap: 6px; align-items: center; }
 
@@ -310,5 +312,6 @@ button.danger:hover { border-color: #b42318; }
   .cal td { height: 16.5px; padding-top: 0; }
   .cal .name, .cal .kw { font-size: 6px; }
   .cal .vtitle { font-size: 8px; }
+  .cal .dots i { width: 4px; height: 4px; }
   * { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
 }

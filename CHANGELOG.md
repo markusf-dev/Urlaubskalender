@@ -2,6 +2,10 @@
 
 Alle Versionen sind als Git-Tag und als [GitHub-Release](https://github.com/markusf-dev/Urlaubskalender/releases) verfügbar.
 
+## v2.2 – 2026-10-11
+
+- **Personen als Punkte:** Im Kalender zeigt jetzt ein farbiger Punkt pro Person, wer frei hat. Die Punkte stehen ganz links unter dem Datum statt als Streifen am unteren Rand; auch die Legende zeigt Punkte.
+
 ## v2.1 – 2026-10-11
 
 - **Titel für Urlaube:** Beim Eintragen kann ein Titel vergeben werden (z. B. „Mallorca“). Er steht senkrecht in der Mitte der Monatsspalte über den Urlaubstagen. Benannte feste Urlaube aus Vorlagen werden genauso beschriftet. Titel werden mitgedruckt und mit dem gemeinsamen Plan abgeglichen.
