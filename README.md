@@ -46,7 +46,7 @@ Die App ist eine Web-App. Du kannst sie im Browser nutzen oder wie eine normale 
 In **Chrome oder Edge** rechts in der Adressleiste auf das Installieren-Symbol klicken. Bei Edge findest du es auch über das Menü **… → Apps → „Diese Website als App installieren“**.
 
 ### Updates
-Neue Versionen lädt die App beim Start im Hintergrund. Sie sind ab dem nächsten Öffnen aktiv.
+Mit Internetverbindung lädt die App immer die aktuelle Version. Kommt im Hintergrund eine neue Version an, lädt sich die Seite einmal automatisch neu.
 
 ## Erste Schritte
 
@@ -109,7 +109,7 @@ npm test   # Tests für Optimierer und Datumsberechnung (node:test)
 | `worker/` | Speicherdienst (Cloudflare Worker + D1), siehe [worker/README.md](worker/README.md) |
 | `sw.js` | Offline-Unterstützung |
 
-Nach Änderungen an Dateien die Version `CACHE` in `sw.js` erhöhen, damit installierte Apps die neue Version laden.
+Nach Änderungen an Dateien die Version `CACHE` in `sw.js` erhöhen. Der Service Worker arbeitet nach „Netzwerk zuerst“, der Cache dient nur als Offline-Rückfall.
 
 Die App wird über GitHub Pages aus dem Branch `main` veröffentlicht.
 

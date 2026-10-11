@@ -1239,6 +1239,15 @@
   loadSchool();
 
   if ('serviceWorker' in navigator && location.protocol.startsWith('http')) {
+    // When an update takes over an already controlled page, reload once so the
+    // new version is shown right away (not on first install).
+    const hadController = !!navigator.serviceWorker.controller;
+    let reloading = false;
+    navigator.serviceWorker.addEventListener('controllerchange', () => {
+      if (!hadController || reloading) return;
+      reloading = true;
+      location.reload();
+    });
     navigator.serviceWorker.register('sw.js').catch(() => { /* offline support is optional */ });
   }
 })();

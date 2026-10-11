@@ -2,6 +2,10 @@
 
 Alle Versionen sind als Git-Tag und als [GitHub-Release](https://github.com/markusf-dev/Urlaubskalender/releases) verfügbar.
 
+## v2.2.1 – 2026-10-11
+
+- **Updates kommen sofort an:** Die App lädt online immer zuerst die aktuelle Version und nutzt den gespeicherten Stand nur noch offline. Übernimmt im Hintergrund eine neue Version, lädt die Seite einmal automatisch neu. Vorher war nach einem Update oft ein zweites Neuladen nötig.
+
 ## v2.2 – 2026-10-11
 
 - **Personen als Punkte:** Im Kalender zeigt jetzt ein farbiger Punkt pro Person, wer frei hat. Die Punkte stehen ganz links unter dem Datum statt als Streifen am unteren Rand; auch die Legende zeigt Punkte.
