@@ -8,3 +8,6 @@ node_modules/
 # Persönliche Daten: Datendateien und Exporte des Urlaubskalenders
 # (enthalten Namen und Urlaube) gehören nicht ins Repository.
 urlaubskalender*.json
+
+# Session-Übergaben (lokal, enthalten persönlichen Kontext)
+HANDOFFS/
