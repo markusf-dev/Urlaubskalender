@@ -2,6 +2,10 @@
 
 Alle Versionen sind als Git-Tag und als [GitHub-Release](https://github.com/markusf-dev/Urlaubskalender/releases) verfügbar.
 
+## v2.2.3 – 2026-10-13
+
+- **Titel über den ganzen Urlaub:** Der Titel steht zentriert über dem ganzen freien Block, also auch über Wochenenden und Feiertage davor und danach (z. B. Fr 01. bis So 03.10. statt nur über den Freitag).
+
 ## v2.2.2 – 2026-10-13
 
 - **Punkte über den ganzen Urlaub:** Die Personen-Punkte stehen jetzt auch auf Wochenenden und Feiertagen, die zu einem Urlaub gehören (z. B. Sa 20. bis So 28.02. statt nur Mo bis Fr). Gezählt werden weiterhin nur die Urlaubstage.

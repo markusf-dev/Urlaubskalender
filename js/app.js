@@ -325,18 +325,31 @@
 
   // Titles to draw in the shown year: vacation titles plus named fixed-vacation presets.
   function titleRanges(year) {
-    const list = state.titles.map((t) => ({ from: t.from, to: t.to, text: t.text }));
+    const list = state.titles.map((t) => ({ from: t.from, to: t.to, text: t.text, members: t.members }));
     for (const p of state.presets) {
       if (p.type !== 'block' || !p.active || !p.label) continue;
       if (!state.members.some((m) => appliesTo(p, m.id))) continue;
       const from = `${year}-${p.from}`, to = p.from <= p.to ? `${year}-${p.to}` : `${year + 1}-${p.to}`;
-      list.push({ from, to, text: p.label });
-      if (p.from > p.to) list.push({ from: `${year - 1}-${p.from}`, to: `${year}-${p.to}`, text: p.label });
+      const members = state.members.filter((m) => appliesTo(p, m.id)).map((m) => m.id);
+      list.push({ from, to, text: p.label, members });
+      if (p.from > p.to) list.push({ from: `${year - 1}-${p.from}`, to: `${year}-${p.to}`, text: p.label, members });
     }
     const start = `${year}-01-01`, end = `${year}-12-31`;
     return list
       .filter((t) => t.to >= start && t.from <= end)
-      .map((t) => ({ ...t, from: t.from < start ? start : t.from, to: t.to > end ? end : t.to }));
+      .map((t) => extendToBreak({ ...t, from: t.from < start ? start : t.from, to: t.to > end ? end : t.to }));
+  }
+
+  // Widens a title over the whole break of its people, e.g. the weekend after a Friday off.
+  function extendToBreak(t) {
+    const inBreak = (date) => {
+      const day = model && model.byDate.get(date);
+      return !!day && t.members.some((id) => day.per[id]?.inRun);
+    };
+    let { from, to } = t;
+    while (inBreak(D.addDays(from, -1))) from = D.addDays(from, -1);
+    while (inBreak(D.addDays(to, 1))) to = D.addDays(to, 1);
+    return { ...t, from, to };
   }
 
   // Draws each title rotated in the middle of the month column over its days.
