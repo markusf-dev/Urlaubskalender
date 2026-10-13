@@ -2,6 +2,10 @@
 
 Alle Versionen sind als Git-Tag und als [GitHub-Release](https://github.com/markusf-dev/Urlaubskalender/releases) verfügbar.
 
+## v2.2.2 – 2026-10-13
+
+- **Punkte über den ganzen Urlaub:** Die Personen-Punkte stehen jetzt auch auf Wochenenden und Feiertagen, die zu einem Urlaub gehören (z. B. Sa 20. bis So 28.02. statt nur Mo bis Fr). Gezählt werden weiterhin nur die Urlaubstage.
+
 ## v2.2.1 – 2026-10-11
 
 - **Updates kommen sofort an:** Die App lädt online immer zuerst die aktuelle Version und nutzt den gespeicherten Stand nur noch offline. Übernimmt im Hintergrund eine neue Version, lädt die Seite einmal automatisch neu. Vorher war nach einem Update oft ein zweites Neuladen nötig.

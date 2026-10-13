@@ -282,6 +282,7 @@
       stats[m.id] = { used, rest: budget(m.id) - used, offDays: runs.reduce((s, r) => s + r.to - r.from + 1, 0) };
       for (const r of runs) {
         const part = days.slice(r.from, r.to + 1).map((d) => d.per[m.id]);
+        part.forEach((p) => { p.inRun = true; });
         const cost = part.reduce((s, p) => s + (p.planned ? p.cost : 0), 0);
         const presets = [...new Set(part.filter((p) => p.presetVac && !p.manualVac).map((p) => p.blockPreset))];
         const manualDays = part.some((p) => p.manualVac);
@@ -562,8 +563,8 @@
     if (inSuggRun) cls.push('in-sugg-run');
     else if (day.jointRun) cls.push('in-run');
 
-    // Off thanks to vacation or a person-specific free day (not weekends/holidays, which apply to all).
-    const personOff = (m) => day.per[m.id].planned || (day.per[m.id].free && !day.weekend && !day.holiday);
+    // Off thanks to vacation (incl. weekends/holidays inside that break) or a person-specific free day.
+    const personOff = (m) => day.per[m.id].inRun || (day.per[m.id].free && !day.weekend && !day.holiday);
     const onVacation = state.members.filter(personOff);
     const title = [`${D.WEEKDAYS_LONG[day.wd]}, ${fmt(day.date)}${day.date.slice(0, 4)}`];
     if (day.holiday) title.push(day.holiday);

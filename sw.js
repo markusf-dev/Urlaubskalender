@@ -2,7 +2,7 @@
 // so a new version shows up on the next load); the cache is only the fallback
 // when offline or when the network is too slow. Requests to other origins
 // (school holiday API, sync service) are not touched.
-const CACHE = 'urlaubskalender-v10';
+const CACHE = 'urlaubskalender-v11';
 const NETWORK_TIMEOUT_MS = 4000;
 const FILES = [
   './',
